@@ -19,7 +19,6 @@
     <Compile Include="Parsers.fs" />
     <Compile Include="TextParsers.fs" />
     <Compile Include="Parse.fs" />
-    <Compile Include="Library.fs" />
   </ItemGroup>
 
   <ItemGroup>
