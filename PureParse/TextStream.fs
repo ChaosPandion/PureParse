@@ -21,23 +21,17 @@ module TextStream =
         }
 
         type ITextStream<'TState, 'TContent> = interface
-
             abstract member State : 'TState
-
             abstract member Index : int
-
             abstract member Line : int
-
+            abstract member Column : int
+            abstract member Remaining : int
+            abstract member IsComplete : bool
             abstract member Value : ValueOption<'TContent>
-
-            abstract member Peek : unit -> ValueOption<'TContent>     
-            
+            abstract member Peek : unit -> ValueOption<'TContent>
             abstract member Peek : count:int -> ValueOption<ReadOnlyMemory<'TContent>>
-
             abstract member Next : unit -> ValueOption<'TContent * ITextStream<'TState, 'TContent>>
-
             abstract member Next : count:int -> ValueOption<ReadOnlyMemory<'TContent> * ITextStream<'TState, 'TContent>>
-
         end
 
         type ByteRuneTextStream<'TState> (state: 'TState, memory:ReadOnlyMemory<byte>, index: int, line: int) = 
@@ -105,22 +99,28 @@ module TextStream =
                 else 
                     ValueNone
 
-        type CharTextStream<'TState> (state: 'TState, memory:ReadOnlyMemory<char>, index: int, line: int) = 
+        type CharTextStream<'TState> (state: 'TState, memory:ReadOnlyMemory<char>, index: int, line: int, column: int) = 
                 static let newline = '\n'
 
                 static member Create<'TState> (state: 'TState, text:string) : ITextStream<'TState, char> =
                     if text = null then
                         nullArg (nameof(text))
                     let memory = text.ReplaceLineEndings("\n").AsMemory()              
-                    CharTextStream<'TState>(state, memory, 0, 0)
+                    CharTextStream<'TState>(state, memory, 0, 1, 1)
 
                 interface ITextStream<'TState, char> with
-
+                
                     member _.State = state
 
                     member _.Index = index
 
                     member _.Line = line
+
+                    member _.Column = column
+
+                    member _.Remaining = memory.Length - index
+
+                    member _.IsComplete = index = memory.Length
 
                     member x.Value = (x:>ITextStream<'TState, char>).Peek()
                 
@@ -140,7 +140,7 @@ module TextStream =
                         if index < memory.Length then 
                             let r = memory.Slice(index, 1).Span[0]
                             let l = if r = newline then line + 1 else line
-                            ValueSome (r, CharTextStream<'TState>(state, memory, index + 1, l))
+                            ValueSome (r, CharTextStream<'TState>(state, memory, index + 1, l, 1))
                         else 
                             ValueNone
 
@@ -151,7 +151,7 @@ module TextStream =
                             for r in r.Span do
                                 if r = newline then
                                     l <- l + 1
-                            ValueSome (r, CharTextStream<'TState>(state, memory, index + count, line + l))
+                            ValueSome (r, CharTextStream<'TState>(state, memory, index + count, line + l, 1))
                         else 
                             ValueNone
 
