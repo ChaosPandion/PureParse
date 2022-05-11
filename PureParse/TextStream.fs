@@ -159,11 +159,21 @@ module TextStream =
 
             static let newline = new Rune('\n')
 
+            let getCount range remaining =
+                match range with
+                | One -> 1
+                | Exact (Bounded count) -> count
+                | Between (Bounded lower, Bounded upper) ->  max lower (min upper remaining)
+                | Between (Unbounded, Bounded upper) ->  min upper remaining
+                | Between (Bounded lower, Unbounded) ->  max lower remaining
+                | Between (Unbounded, Unbounded) | Exact Unbounded | Remaining ->  remaining
+
             static member Create<'TState> (state: 'TState, text:string) =
                 if text = null then
                     nullArg (nameof(text))
                 let memory = ReadOnlyMemory(text.ReplaceLineEndings("\n").EnumerateRunes() |> Seq.toArray)                
                 TextStream<'TState>(state, memory, 0, 1, 1)
+
 
             member _.State = state
 
@@ -177,7 +187,7 @@ module TextStream =
 
             member _.IsComplete = index = memory.Length
 
-            member inline x.Rune = x.Peek()
+            member x.Value = x.Peek()
                 
             member _.Peek () : ValueOption<Rune> =
                 if index < memory.Length then 
@@ -185,11 +195,15 @@ module TextStream =
                 else 
                     ValueNone
 
-            member _.Peek (count:int) : ValueOption<ReadOnlyMemory<Rune>> =
-                if index + count <= memory.Length then 
-                    ValueSome (memory.Slice(index, count))
-                else 
+            member this.Peek (count:int) : ValueOption<ReadOnlyMemory<Rune>> = 
+                this.Peek (Exact(Bounded count))  
+
+            member this.Peek (range:Range<int>) : ValueOption<ReadOnlyMemory<Rune>> =
+                let count = getCount range this.Remaining
+                if index + count > memory.Length then
                     ValueNone
+                else
+                    ValueSome (memory.Slice(index, count))
 
             member _.Next () : ValueOption<Rune * TextStream<'TState>> =
                 if index < memory.Length then 
@@ -199,8 +213,14 @@ module TextStream =
                 else 
                     ValueNone
 
-            member _.Next (count:int) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
-                if index + count <= memory.Length then 
+            member this.Next (count:int) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> = 
+                this.Next (Exact(Bounded count))  
+
+            member this.Next (range:Range<int>) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
+                let count = getCount range this.Remaining
+                if index + count > memory.Length then
+                    ValueNone
+                else
                     let r = memory.Slice(index, count)
                     let mutable l = line
                     let mutable c = column
@@ -210,8 +230,9 @@ module TextStream =
                             c <- 1
                             l <- l + 1
                     ValueSome (r, TextStream<'TState>(state, memory, index + count, l, c))
-                else 
-                    ValueNone   
+                    
+            member _.CreateFailure<'e, 'u when 'e :> exn> (data:'u) (f:'u * int * int * int -> 'e) =
+                f (data, index, line, column)
     
     end
 

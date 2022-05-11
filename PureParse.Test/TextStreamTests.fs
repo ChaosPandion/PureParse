@@ -18,7 +18,7 @@ let ``Initial Setup is correct.`` () =
     Assert.Equal(1, ts.Column)
     Assert.Equal(3, ts.Remaining)
     Assert.False(ts.IsComplete)
-    Assert.Equal(new Rune('a'), ts.Rune.Value)
+    Assert.Equal(new Rune('a'), ts.Value.Value)
 
 [<Fact>]
 let ``Peek Test`` () =
@@ -40,7 +40,6 @@ let ``Peek Test`` () =
 
 [<Fact>]
 let ``UTF-32 Test`` () =
-    // 10762 127753 128509
     let ts = TextStream<state>.Create({ name = "test" }, "⨊🌉🗽")
     match ts.Next(1) with
     | ValueSome (RuneString "⨊", ts1) ->
@@ -80,16 +79,25 @@ let ``Basic Line and Column Test`` () =
     let ts = TextStream<unit>.Create((), "12345\n123")
     match ts.Next(5) with 
     | ValueSome(Runes "12345", ts1) ->
+        Assert.Equal(5, ts1.Index)
         Assert.Equal(1, ts1.Line)
         Assert.Equal(6, ts1.Column)
+        Assert.Equal(4, ts1.Remaining)
+        Assert.False(ts1.IsComplete)
         match ts1.Next(1) with 
         | ValueSome(Runes "\n", ts2) ->
+            Assert.Equal(6, ts2.Index)
             Assert.Equal(2, ts2.Line)
             Assert.Equal(1, ts2.Column)
+            Assert.Equal(3, ts2.Remaining)
+            Assert.False(ts2.IsComplete)
             match ts2.Next(3) with 
             | ValueSome(Runes "123", ts3) ->
+                Assert.Equal(9, ts3.Index)
                 Assert.Equal(2, ts3.Line)
-                Assert.Equal(4, ts3.Column)    
+                Assert.Equal(4, ts3.Column)   
+                Assert.Equal(0, ts3.Remaining)
+                Assert.True(ts3.IsComplete) 
             | _ -> failwith "Error"     
         | _ -> failwith "Error"  
     | _ -> failwith "Error"  

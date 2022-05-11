@@ -38,8 +38,7 @@ module rec PLisp =
 
     let pFractional = 
         parse {
-            do! skipChar '.'
-            let! fractional = parseCharString (parseAnyOf (RuneString "0123456789"))
+            let! fractional = skipChar '.' |-> parseCharString (parseAnyOf (RuneString "0123456789"))
             return double ("." + fractional)
         }
 
@@ -51,7 +50,7 @@ module rec PLisp =
                 return PNumber (integer + fractional)
             | None -> 
                 return PNumber integer
-        }
+        } <??> ("Number Parser", "Parse an integer or real number.")
 
     let pEscapeChar = 
         parse {
@@ -79,11 +78,12 @@ module rec PLisp =
             let! body =  parseCharString pStringBody
             do! skipChar '\"'
             return PString body
-        }
+        } <??> ("String Parser", "\"...body...\"")
 
+    let whiteSpaceChars = RuneCharSeq [' '; '\r'; '\n'; '\t'; ]
     let pWhiteSpace:Parser<unit,unit> = 
         parse {
-            let! _ = parseCharString (parseAnyOf (RuneCharSeq [' '; '\r'; '\n'; '\t'; ]))
+            let! _ = parseCharString (parseAnyOf whiteSpaceChars)
             return ()
         }
 

@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Range.fs" />
     <Compile Include="Errors.fs" />
     <Compile Include="ParserData.fs" />
     <Compile Include="Runes.fs" />

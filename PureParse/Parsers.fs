@@ -26,6 +26,67 @@ module Parsers =
     /// The 'pipe' function of the monad
     let (>>) p1 p2 state = p1 >>= (fun _ -> p2) state
 
+    /// The parser 'p' is given a formal name that is provided when an error occurs.
+    let (<?>) p (name:string) =
+        fun stream ->
+            match p stream with
+            | Success (_, _) as result -> result
+            | Failure (stream, error) -> 
+                let e = NamedParserError (name, "", error)
+                Failure (stream, e)
+
+    /// The parser 'p' is given a formal name and description that is provided when an error occurs.
+    let (<??>) p (name:string, description:string) =
+        fun stream ->
+            match p stream with
+            | Success (_, _) as result -> result
+            | Failure (stream, error) -> 
+                let e = NamedParserError (name, description, error)
+                Failure (stream, e)
+
+
+    let ``⊕`` x y : Parser<_, _> =
+        fun stream ->
+            match x stream with
+            | Success (_, _) as result -> result
+            | Failure (_, _) -> y stream
+
+    let (<|>) = ``⊕``
+    let alternative = ``⊕``
+    let choose2 = ``⊕``
+    let choose3 x y z = ``⊕`` (``⊕`` x y) z 
+
+    let sequenceLeft x y = 
+        fun stream ->
+            match x stream with
+            | Success (s2, data) -> 
+                match y s2 with
+                | Success (s3, _) -> 
+                    Success (s3, data)
+                | Failure (_, error) -> 
+                    Failure (stream, error)
+            | Failure (_, error) -> 
+                Failure (stream, error)
+
+    let sequenceRight x y = 
+        fun stream ->
+            match x stream with
+            | Success (stream, _) -> y stream 
+            | Failure (_, error) -> Failure (stream, error)
+
+    let ``⊛`` = sequenceRight
+    let sequencing = ``⊛``
+    
+    let (|->) = sequenceRight
+    let (<-|) = sequenceLeft
+
+    
+    ///// This is a 'choice' combinator.
+    //let (<|>) p1 p2 state =
+    //    match p1 state with
+    //    | Success (_, _) as result -> result
+    //    | Failure (state, _) -> p2 state
+
     let map p f stream =
         match p stream with
         | Success (stream, value) -> 
@@ -39,13 +100,8 @@ module Parsers =
 
     /// The 'return' or 'unit' function of the monad
     let fail message state = 
-        Failure (state, ParseError(message, state.Line, state.Column)) 
+        Failure (state, state.CreateFailure message ParseError) 
 
-    /// This is a 'choice' combinator.
-    let (<|>) p1 p2 state =
-        match p1 state with
-        | Success (_, _) as result -> result
-        | Failure (state, _) -> p2 state
 
     /// This parser is always a success returning an Option value
     let optional (parser:M<_, _>) state = 
@@ -80,7 +136,7 @@ module Parsers =
                 |> Async.RunSynchronously
             match a with
             | Some n -> n
-            | None -> Failure (state, ParseError("", state.Line, state.Column))
+            | None -> Failure (state, state.CreateFailure "None of the parsers succeeded." ParseError)
             
     /// Pass over skip and evaluate parser.
     let skip (parser:M<_, _>) state =
@@ -166,3 +222,4 @@ module Parsers =
                         parse state
             parse state
 
+    

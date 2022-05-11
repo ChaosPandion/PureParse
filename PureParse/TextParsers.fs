@@ -16,13 +16,13 @@ module TextParsers =
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(x, ns) when x = r -> Success(ns, r)
-            | _ -> Failure(stream, RuneParseError(r, stream.Line, stream.Column))
+            | _ -> Failure(stream, stream.CreateFailure r RuneParseError)
 
     let parseChar<'TState> (c:char) : Parser<'TState, char> =
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(Rune c, ns) -> Success(ns, c)
-            | _ -> Failure(stream, CharParseError(c, stream.Line, stream.Column))
+            | _ -> Failure(stream, stream.CreateFailure c CharParseError)
 
     let parseString<'TState> (s:string) : Parser<'TState, string> =  
         if String.IsNullOrEmpty s then
@@ -31,7 +31,7 @@ module TextParsers =
         fun (stream:TextStream<'TState>) ->     
             match stream.Next(count) with
             | ValueSome(Runes s, ns) -> Success(ns, s)
-            | _ -> Failure(stream, StringParseError(s, stream.Line, stream.Column))
+            | _ -> Failure(stream, stream.CreateFailure s StringParseError)
 
     let parseWhiteSpace<'TState> () : Parser<'TState, string> =  
         fun (stream:TextStream<'TState>) ->             
@@ -43,19 +43,19 @@ module TextParsers =
             let nextStream, sb = loop stream (System.Text.StringBuilder())
             if nextStream.Index <> stream.Index
             then Success (nextStream, sb.ToString())
-            else Failure (stream, NoWhiteSpaceParseError(stream.Line, stream.Column))
+            else Failure (stream, stream.CreateFailure "No white space found." ParseError)
 
     let skipRune<'TState> (r:Rune) : Parser<'TState, unit> =
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(x, ns) when x = r -> Success(ns, ())
-            | _ -> Failure(stream, RuneParseError(r, stream.Line, stream.Column))
+            | _ -> Failure(stream, stream.CreateFailure r RuneParseError)
 
     let skipChar<'TState> (c:char) : Parser<'TState, unit> =
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(Rune c, ns) -> Success(ns, ())
-            | _ -> Failure(stream, CharParseError(c, stream.Line, stream.Column))
+            | _ -> Failure(stream, stream.CreateFailure c CharParseError)
 
     let skipString<'TState> (s:string) : Parser<'TState, unit> =  
         if String.IsNullOrEmpty s then
@@ -64,7 +64,7 @@ module TextParsers =
         fun (stream:TextStream<'TState>) ->   
             match stream.Next(count) with
             | ValueSome(Runes s, ns) -> Success(ns, ())
-            | _ -> Failure(stream, StringParseError(s, stream.Line, stream.Column))
+            | _ -> Failure(stream, stream.CreateFailure s StringParseError)
         
     let skipWhiteSpace<'TState> () : Parser<'TState, unit> =  
         fun (stream:TextStream<'TState>) ->   
@@ -75,19 +75,19 @@ module TextParsers =
             let nextStream = loop stream 
             if nextStream.Index <> stream.Index
             then Success (nextStream, ())
-            else Failure (stream, NoWhiteSpaceParseError(stream.Line, stream.Column))
+            else Failure (stream, stream.CreateFailure "No white space found." ParseError)
 
     let parseAnyRuneInSet<'TState> (set:Set<Rune>) : Parser<'TState, Rune> = 
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(r, ns) when set.Contains r -> Success(ns, r)
-            | _ -> Failure (stream, ParseError("No matching rune was found.", stream.Line, stream.Column))
+            | _ -> Failure (stream, stream.CreateFailure "No matching rune was found." ParseError)
 
     let parseAnyRuneNotInSet<'TState> (set:Set<Rune>) : Parser<'TState, Rune> = 
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(r, ns) when not <| set.Contains r -> Success(ns, r)
-            | _ -> Failure (stream, ParseError("", stream.Line, stream.Column))
+            | _ -> Failure (stream, stream.CreateFailure "A matching rune was found." ParseError)
 
     let parseAnyOf<'TState> (value:RuneData) : Parser<'TState, Rune> =
         let set = match value with
@@ -112,5 +112,5 @@ module TextParsers =
             let nextStream = run stream sb
             if nextStream.Index <> stream.Index
             then Success (nextStream, sb.ToString())
-            else Failure (stream, ParseError("", stream.Line, stream.Column))
+            else Failure (stream, stream.CreateFailure "The provided parser succeeded zero times." ParseError)
                 
