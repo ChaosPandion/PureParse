@@ -106,5 +106,13 @@ module TextParsers =
             let nextStream = run stream sb
             if nextStream.Index <> stream.Index
             then Success (nextStream, sb.ToString())
-            else Failure (stream, stream.CreateFailure "The provided parser succeeded zero times." ParseError)
-                
+            else Failure (stream, stream.CreateFailure "The provided parser succeeded zero times." ParseError)              
+              
+    let parseKeywords<'TState> (keywords:string list) : Parser<'TState, string>  =
+        if keywords.IsEmpty then
+            failwith "No keywords provided."
+        if keywords |> Seq.exists (String.IsNullOrEmpty) then
+            failwith "None of the keywords can be null or empty."
+        let description = String.Join (",", keywords)
+        let parsers = keywords |> Seq.map parseString<'TState> |> Seq.toList
+        (choose parsers) <??> ("keywords", description)

@@ -118,6 +118,7 @@ module Parsers =
     /// This is a 'choice' combinator.
     let choose<'TState, 'a> (parsers:Parser<'TState, 'a> list) state =
         match parsers with
+        | [] -> failwith "No parsers provided."            
         | [ p1; p2 ] -> (p1 <|> p2) state
         | _ ->
             let parse p  = 

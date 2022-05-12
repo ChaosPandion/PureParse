@@ -21,7 +21,7 @@ module rec PLisp =
     
     let pBool:Parser<unit,PValue> = 
         parse {
-            let! t = parseString "true" <|> parseString "false"
+            let! t = parseKeywords [ "true"; "false" ]
             return PBool (t = "true")
         }
 
