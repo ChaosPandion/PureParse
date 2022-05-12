@@ -2,14 +2,8 @@
 
 open System
 open System.Text
-open FSharp.NativeInterop
-open System.Numerics;
-open System.Runtime.Intrinsics;
-open Runes
 
-
-open TextStream
-
+[<AutoOpen>]
 module TextParsers =
 
     let parseRune<'TState> (r:Rune) : Parser<'TState, Rune> =

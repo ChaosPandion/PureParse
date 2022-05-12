@@ -7,18 +7,9 @@ open FSharp.NativeInterop
 open System.Numerics;
 open System.Runtime.Intrinsics;
 
+[<AutoOpen>]
 module TextStream = 
     begin
-
-        type TextStreamState<'TState> = { 
-            /// Any extra state you need to thread through the parser.
-            state: 'TState;
-
-            /// The underlying text being processed
-            text:string; 
-            index:int; 
-            line:int 
-        }
 
         type ITextStream<'TState, 'TContent> = interface
             abstract member State : 'TState

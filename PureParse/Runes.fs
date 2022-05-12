@@ -2,6 +2,7 @@
 #nowarn "9"
 
 
+[<AutoOpen>]
 module Runes =
 
     open System

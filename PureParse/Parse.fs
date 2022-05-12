@@ -2,6 +2,7 @@
 
 open Parsers
 
+[<AutoOpen>]
 module Parse =
 
     type ParseBuilder () = 

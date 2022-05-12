@@ -7,11 +7,6 @@ module rec PLisp =
     open System
     open System.Text
     open PureParse
-    open PureParse.Parse
-    open PureParse.Parsers
-    open PureParse.TextParsers
-    open PureParse.TextStream
-    open PureParse.Runes
 
     type PValue =
     | PList of PValue list
@@ -30,15 +25,18 @@ module rec PLisp =
             return PBool (t = "true")
         }
 
+    let firstDigit = RuneCharSeq asciiDigitNoZeroChars
+    let digit = RuneCharSeq asciiDigitChars
     let pInteger = 
         parse {
-            let! integer = parseCharString (parseAnyOf (RuneString "0123456789"))
-            return double integer
+            let! x = parseAnyOf firstDigit
+            let! integer = parseCharString (parseAnyOf digit)
+            return double (x.ToString() + integer)
         }
 
     let pFractional = 
         parse {
-            let! fractional = skipChar '.' |-> parseCharString (parseAnyOf (RuneString "0123456789"))
+            let! fractional = skipChar '.' |-> parseCharString (parseAnyOf digit)
             return double ("." + fractional)
         }
 
@@ -87,7 +85,7 @@ module rec PLisp =
             return ()
         }
 
-    let private nameChars = RuneString "abcdefghijklmnopqrztuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    let private nameChars = RuneCharSeq (asciiLetterChars)
     let private pName:Parser<unit,PValue> = map (parseCharString (parseAnyOf nameChars)) PName
         
     let pList:Parser<unit,PValue> = 

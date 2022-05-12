@@ -1,6 +1,6 @@
 ﻿
 
-open PureParse.Parse;
+open PureParse;
 
 
 //let s1 = "____________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________"
@@ -29,5 +29,19 @@ open PureParse.Parse;
 //sw1.Stop();
 //printfn "%s" (sw1.Elapsed.ToString())
 
+let controlChars = controlChars
+let asciiChars = asciiChars
+let unicodeWhiteSpaceChars = unicodeWhiteSpaceChars
+let unicodeLetterChars = unicodeLetterChars
+let unicodeDigitChars = unicodeDigitChars
+
+let asciiDigitNoZeroChars = asciiDigitNoZeroChars
+let asciiDigitChars = asciiDigitChars
+let asciiLowerLetterChars = asciiLowerLetterChars
+let asciiUpperLetterChars = asciiUpperLetterChars
+let asciiLetterChars = asciiLetterChars
+
+for c in PureParse.CharSets.unicodeDigitChars do
+    printfn "%c" c
 
 System.Console.ReadLine() |> ignore

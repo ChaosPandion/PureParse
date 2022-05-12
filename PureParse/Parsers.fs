@@ -5,11 +5,8 @@ open System.Text
 open FSharp.NativeInterop
 open System.Numerics;
 open System.Runtime.Intrinsics;
-open Runes
 
-
-open TextStream
-
+[<AutoOpen>]
 module Parsers =
 
     /// The 'bind' function of the monad
