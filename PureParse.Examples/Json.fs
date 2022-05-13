@@ -15,23 +15,25 @@ module Json =
         | JsonBoolean of bool
         | JsonNull
 
+    let private ws = RuneCharSeq [ ' '; '\n'; '\r'; '\t'; ]
 
-    let private skipWhiteSpace:Parser<unit,unit> = 
-        parse {
-            let! _ = opt <| parseCharString (parseAnyOf (RuneCharSeq [ ' '; '\n'; '\r'; '\t'; ]))
-            return ()
-        }
+    let private parseOneSpace = parseAnyOf ws
+
+    let private skipWhiteSpace:Parser<unit,unit> = skip (parseMany parseOneSpace)
     
+    let private hexDigits = RuneCharSeq (['0'..'9'] @ ['a'..'f'] @ ['A'..'F'])
+
+    let private parseOneHexDigit = parseAnyOf hexDigits
+
     let private hexDigit:Parser<unit,char> = 
-        map (parseAnyOf (RuneCharSeq (['0'..'9'] @ ['a'..'f'] @ ['A'..'F']))) (fun r -> char r.Value)
+        map parseOneHexDigit (fun r -> char r.Value)
+        
+    let private oneNineDigit = RuneCharSeq (['1'..'9'])
 
     let private oneNine:Parser<unit,char> = 
-        map (parseAnyOf (RuneCharSeq (['1'..'9']))) (fun r -> char r.Value) 
+        map (parseAnyOf oneNineDigit) (fun r -> char r.Value) 
 
-    let private digit:Parser<unit,char> =
-        parse {
-            return! parseChar '0' <|> oneNine
-        }
+    let private digit:Parser<unit,char> = parseChar '0' <|> oneNine
 
     let private digits:Parser<unit,char list> = parseMany1 digit
 
@@ -67,9 +69,12 @@ module Json =
             let integerPart = parseInteger digits
             return integerPart, signModifier
         }
+
+    let private exponentChar = RuneCharSeq "eE"
+
     let private parseExponentPart =
         parse {
-            let! e = parseAnyOf (RuneCharSeq "eE")
+            let! _ = parseAnyOf exponentChar
             let! s = sign
             let! d = digits
             let signModifier = parseSign s;
@@ -78,6 +83,7 @@ module Json =
             let result = 10.0 ** power
             return result
         }
+
     let private parseFractionalPart =
         parse {
             do! skipChar '.'
@@ -88,35 +94,44 @@ module Json =
             return result
         }
 
+    let private nonEscapeChar = parseNoneOf "\"\\"
+
+    let private escapeChars = RuneString "\"\\/bfnrtu"
+
+    let private escapeChar = 
+        parse {
+            do! skipChar '\\'
+            let! c = parseAnyOf escapeChars
+            match c with
+            | RuneChar '\"' -> return Rune('\"')
+            | RuneChar '\\' -> return Rune('\\')
+            | RuneChar '/' -> return Rune('/')
+            | RuneChar 'b' -> return Rune('\b')
+            | RuneChar 'f' -> return Rune('\f')
+            | RuneChar 'n' -> return Rune('\n')
+            | RuneChar 'r' -> return Rune('\r')
+            | RuneChar 't' -> return Rune('\t')
+            | RuneChar 'u' -> 
+                let! h1 = hexDigit
+                let! h2 = hexDigit 
+                let! h3 = hexDigit 
+                let! h4 = hexDigit
+                let v = ((digitToInt h1) * 4096) + 
+                            ((digitToInt h2) * 256) + 
+                            ((digitToInt h3) * 16) + 
+                            (digitToInt h4)
+                return Rune(char v)
+            | _ -> return! fail "fatal error"
+        }
+
+    let private stringChars = parseMany (nonEscapeChar <|> escapeChar)
+
     let private pStringBody:Parser<unit,string> = 
         parse {
-            let! p = parseMany ((parseNoneOf "\"\\") <|> 
-                        parse {
-                            do! skipChar '\\'
-                            let! c = parseAnyOf (RuneString "\"\\/bfnrtu")
-                            match c with
-                            | RuneChar '\"' -> return Rune('\"')
-                            | RuneChar '\\' -> return Rune('\\')
-                            | RuneChar '/' -> return Rune('/')
-                            | RuneChar 'b' -> return Rune('\b')
-                            | RuneChar 'f' -> return Rune('\f')
-                            | RuneChar 'n' -> return Rune('\n')
-                            | RuneChar 'r' -> return Rune('\r')
-                            | RuneChar 't' -> return Rune('\t')
-                            | RuneChar 'u' -> 
-                                let! h1 = hexDigit
-                                let! h2 = hexDigit 
-                                let! h3 = hexDigit 
-                                let! h4 = hexDigit
-                                let v = ((digitToInt h1) * 4096) + 
-                                          ((digitToInt h2) * 256) + 
-                                          ((digitToInt h3) * 16) + 
-                                          (digitToInt h4)
-                                return Rune(char v)
-                            | _ -> return! fail "fatal error"
-                        })
-            return System.String.Join("", p)
-        }        
+            let! chars = stringChars
+            return System.String.Join("", chars)
+        }      
+        
     let private pString:Parser<unit,string> = 
         parse {
             do! skipChar '\"'
@@ -124,12 +139,16 @@ module Json =
             do! skipChar '\"'
             return body
         }
+
     let private parseJsonNumber =
         parse {
             let! ip, sign = parseIntegerPart  
             let! fp = parseFractionalPart <|> result 0.0
             let! ep = parseExponentPart <|> result 1.0
-            return JsonNumber ((sign * (ip + fp)) * ep)
+            let x = ip + fp
+            let signed = sign * x
+            let n = signed * ep
+            return JsonNumber n
         }
 
     let private parseJsonString:Parser<unit,JsonValue> = 
@@ -138,15 +157,16 @@ module Json =
             return JsonString body
         }
 
+    let private keywords = [ "true"; "false"; "null" ]
+
     let private pKeyword:Parser<unit,JsonValue> = 
         parse {
-            match! parseKeywords [ "true"; "false"; "null" ] with
+            match! parseKeywords keywords with
             | "true" -> return JsonBoolean true
             | "false" -> return JsonBoolean false
             | "null" -> return JsonNull
             | _ -> return! fail "No Valid Keyword"
         }
-
 
     let private parseMember:Parser<unit,string * JsonValue> = 
         parse {
@@ -164,8 +184,7 @@ module Json =
         parse {
             let! members = parseList parseMember (skipWhiteSpace  |-> skipChar ',' |-> skipWhiteSpace) false
             return members |> Map.ofSeq
-        } 
-        
+        }         
 
     let private pElement:Parser<unit,JsonValue> = 
         parse {
@@ -185,11 +204,11 @@ module Json =
             do! skipWhiteSpace
             do! skipChar '{'
             do! skipWhiteSpace
-            let! members = parseMembers
+            let! members = opt parseMembers
             do! skipWhiteSpace
             do! skipChar '}'
             do! skipWhiteSpace
-            return JsonObject members
+            return JsonObject (Option.defaultWith (fun () -> Map.empty) members)
         }
 
     let private pArray:Parser<unit,JsonValue> = 
@@ -197,11 +216,11 @@ module Json =
             do! skipWhiteSpace
             do! skipChar '['
             do! skipWhiteSpace
-            let! elements = pElements
+            let! elements = opt pElements
             do! skipWhiteSpace
             do! skipChar ']'
             do! skipWhiteSpace
-            return JsonArray elements
+            return JsonArray (Option.defaultWith (fun () -> List.empty) elements)
         }
 
     let private pValue:Parser<unit,JsonValue> = 
@@ -211,6 +230,5 @@ module Json =
             do! skipWhiteSpace
             return v
         }
-
 
     let parseText text = run pValue text ()
