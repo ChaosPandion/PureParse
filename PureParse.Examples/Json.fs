@@ -63,7 +63,7 @@ module Json =
  
     let private parseIntegerPart =
         parse {
-            let! sign = sign
+            let! sign = opt (parseChar '-')
             let! digits = digits
             let signModifier = parseSign sign
             let integerPart = parseInteger digits
@@ -180,9 +180,11 @@ module Json =
             return name, value
         }
 
+    let private memberSep = skipWhiteSpace  |-> skipChar ',' |-> skipWhiteSpace
+
     let private parseMembers:Parser<unit,Map<string, JsonValue>> = 
         parse {
-            let! members = parseList parseMember (skipWhiteSpace  |-> skipChar ',' |-> skipWhiteSpace) false
+            let! members = parseList parseMember memberSep false
             return members |> Map.ofSeq
         }         
 

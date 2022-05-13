@@ -13,9 +13,10 @@ module TextParsers =
             | _ -> Failure(stream, stream.CreateFailure r RuneParseError)
 
     let parseChar<'TState> (c:char) : Parser<'TState, char> =
+        let expect = Rune(c)
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
-            | ValueSome(Rune c, ns) -> Success(ns, c)
+            | ValueSome(r, ns) when r = expect -> Success(ns, c)
             | _ -> Failure(stream, stream.CreateFailure c CharParseError)
 
     let parseString<'TState> (s:string) : Parser<'TState, string> =  
@@ -46,9 +47,10 @@ module TextParsers =
             | _ -> Failure(stream, stream.CreateFailure r RuneParseError)
 
     let skipChar<'TState> (c:char) : Parser<'TState, unit> =
+        let expect = Rune(c)
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
-            | ValueSome(Rune c, ns) -> Success(ns, ())
+            | ValueSome(r, ns) when r = expect -> Success(ns, ())
             | _ -> Failure(stream, stream.CreateFailure c CharParseError)
 
     let skipString<'TState> (s:string) : Parser<'TState, unit> =  

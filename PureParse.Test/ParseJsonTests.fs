@@ -127,30 +127,32 @@ module ParseJsonTests =
     [<InlineData(1, " 1 ")>]
     [<InlineData(12, " 12 ")>]
     [<InlineData(123, " 123 ")>]
-    [<InlineData(+1, "+1")>]
-    [<InlineData(+12, "+12")>]
-    [<InlineData(+123, "+123")>]
-    [<InlineData(+1, " +1 ")>]
-    [<InlineData(+12, " +12 ")>]
-    [<InlineData(+123, " +123 ")>]
     [<InlineData(-1, "-1")>]
     [<InlineData(-12, "-12")>]
     [<InlineData(-123, "-123")>]
     [<InlineData(-1, " -1 ")>]
     [<InlineData(-12, " -12 ")>]
     [<InlineData(-123, " -123 ")>]
+    [<InlineData(1000000000, "1000000000")>]
+    [<InlineData(0, "0")>]
+    let ``JSON Parse An Integer`` expect text =
+        let result = parseText text
+        match result with
+        | JsonNumber n when Math.Abs(expect - n) = 0 ->
+            Assert.Equal(expect, n)
+        | JsonNumber n when Math.Abs(expect - n) > 0.00000001 ->
+            Assert.Equal(expect, n)
+        | JsonNumber _ -> ()
+        | _ -> failwith "wrong type."
+
+
+    [<Theory>]
     [<InlineData(1.1, "1.1")>]
     [<InlineData(1.12, "1.12")>]
     [<InlineData(1.123, "1.123")>]
     [<InlineData(1.1, " 1.1 ")>]
     [<InlineData(1.12, " 1.12 ")>]
     [<InlineData(1.123, " 1.123 ")>]
-    [<InlineData(+1.1, "+1.1")>]
-    [<InlineData(+1.12, "+1.12")>]
-    [<InlineData(+1.123, "+1.123")>]
-    [<InlineData(+1.1, " +1.1 ")>]
-    [<InlineData(+1.12, " +1.12 ")>]
-    [<InlineData(+1.123, " +1.123 ")>]
     [<InlineData(-1.1, "-1.1")>]
     [<InlineData(-1.12, "-1.12")>]
     [<InlineData(-1.123, "-1.123")>]
