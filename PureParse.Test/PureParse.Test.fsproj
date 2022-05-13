@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ParseJsonTests.fs" />
     <Compile Include="TextStreamTests.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Program.fs" />

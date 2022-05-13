@@ -32,4 +32,6 @@ module Parse =
         let stream = TextStream.TextStream.Create(state, text)
         match parser stream with
         | Success (_, result) -> result
-        | Failure (_, error) -> raise error
+        | Failure (_, error) -> 
+            printfn "%O" error
+            raise error
