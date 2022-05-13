@@ -19,7 +19,7 @@ module Json =
 
     let private parseOneSpace = parseAnyOf ws
 
-    let private skipWhiteSpace:Parser<unit,unit> = skip (parseMany parseOneSpace)
+    let private skipWhiteSpace:Parser<unit,unit> = skip (parseMany parseOneSpace 0)
     
     let private hexDigits = RuneCharSeq (['0'..'9'] @ ['a'..'f'] @ ['A'..'F'])
 
@@ -35,7 +35,7 @@ module Json =
 
     let private digit:Parser<unit,char> = parseChar '0' <|> oneNine
 
-    let private digits:Parser<unit,char list> = parseMany1 digit
+    let private digits:Parser<unit,char list> = parseMany digit 1
 
     let private digitToInt = function
     | x when x >= '0' && x <= '9' -> int x - int '0'
@@ -124,7 +124,7 @@ module Json =
             | _ -> return! fail "fatal error"
         }
 
-    let private stringChars = parseMany (nonEscapeChar <|> escapeChar)
+    let private stringChars = parseList (nonEscapeChar <|> escapeChar) (Many 0)
 
     let private pStringBody:Parser<unit,string> = 
         parse {
@@ -184,7 +184,7 @@ module Json =
 
     let private parseMembers:Parser<unit,Map<string, JsonValue>> = 
         parse {
-            let! members = parseList parseMember memberSep false
+            let! members = parseList parseMember (Sep (memberSep, false, 0))
             return members |> Map.ofSeq
         }         
 
@@ -198,7 +198,7 @@ module Json =
 
     let private pElements:Parser<unit,List<JsonValue>> = 
         parse {
-            return! parseList pElement (skipChar ',') false
+            return! parseList pElement (Sep (skipChar ',', false, 0))
         }  
 
     let private pObject:Parser<unit,JsonValue> = 

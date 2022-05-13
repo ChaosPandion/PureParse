@@ -77,13 +77,6 @@ module Parsers =
     let (|->) = sequenceRight
     let (<-|) = sequenceLeft
 
-    
-    ///// This is a 'choice' combinator.
-    //let (<|>) p1 p2 state =
-    //    match p1 state with
-    //    | Success (_, _) as result -> result
-    //    | Failure (state, _) -> p2 state
-
     let map p f stream =
         match p stream with
         | Success (stream, value) -> 
@@ -148,28 +141,6 @@ module Parsers =
         | Success(state, _) -> parser state
         | Failure(state, _) -> parser state
 
-    /// Parse 'p' until your reach the end parser 'e'
-    let parseUntil<'a> (p:M<_, _>) (e:M<_, unit>) state : Result<_, 'a list> =
-        let first = p state 
-        match first with
-        | Failure (state, message) -> 
-            Failure (state, message)
-        | Success (state, first) ->
-            let a = ResizeArray<'a>()
-            a.Add (first)
-            let rec parse state =
-                let inline complete () = a.ToArray() |> List.ofArray
-                match e state with
-                | Success (state, _) -> 
-                    result (complete ()) state
-                | Failure (state, _) -> 
-                    match p state with
-                    | Failure (state, message) -> 
-                        Failure (state, message)
-                    | Success (state, _) ->
-                        parse state
-            parse state 
-
     let sequence<'a> (parsers:Parser<_, 'a> list) : Parser<_, 'a list>  = 
         fun (state) ->
             let rec parse ps state rs =
@@ -194,62 +165,4 @@ module Parsers =
                         parse ps state
                     | Failure (_, message) ->
                         Failure (state, message)
-            parse parsers state        
-
-    let parseList<'TState, 'a> (parser:M<'TState, 'a>) (separator:M<'TState, unit>) allowTrailingSeparator state :Result<'TState, 'a list> =
-        let initialStream = state
-        let first = parser state 
-        match first with
-        | Failure (state, message) -> 
-            Failure (state, message)
-        | Success (state, first) ->
-            let a = ResizeArray<'a>()
-            a.Add (first)
-            let rec parse state =
-                let inline complete () = a.ToArray() |> List.ofArray
-                match separator state with
-                | Failure (state, _) -> 
-                    result (complete ()) state
-                | Success (state, _) -> 
-                    match parser state with
-                    | Failure (state, message) -> 
-                        if allowTrailingSeparator 
-                        then result (complete ()) state
-                        else Failure (state, new Exception("No trailing separator is allowed.", message))
-                    | Success (state, next) ->
-                        a.Add(next)
-                        parse state
-            parse state
-
-    let parseMany<'TState, 'TElement> (parser:Parser<'TState, 'TElement>) : Parser<'TState, List<'TElement>> =
-        fun (stream:TextStream<'TState>) ->
-            let a = ResizeArray()
-            let rec parse stream =
-                let inline complete () = a.ToArray() |> List.ofArray
-                match parser stream with
-                | Failure (stream, _) -> 
-                    result (complete ()) stream
-                | Success (stream, element) -> 
-                    a.Add(element)
-                    parse stream
-            parse stream
-
-    let parseMany1<'TState, 'TElement> (parser:Parser<'TState, 'TElement>) : Parser<'TState, List<'TElement>> =
-        fun (stream:TextStream<'TState>) ->
-            match parser stream  with
-            | Failure (state, message) -> 
-                Failure (state, message)
-            | Success (state, first) ->
-                let a = ResizeArray()
-                a.Add (first)
-                let rec parse stream =
-                    let inline complete () = a.ToArray() |> List.ofArray
-                    match parser stream with
-                    | Failure (stream, _) -> 
-                        result (complete ()) stream
-                    | Success (stream, element) -> 
-                        a.Add(element)
-                        parse stream
-                parse state
-
-    
+            parse parsers state 

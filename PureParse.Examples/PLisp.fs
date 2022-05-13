@@ -93,7 +93,7 @@ module rec PLisp =
             do! skip pWhiteSpace
             do! skipChar '('
             do! skip pWhiteSpace
-            let! values = parseList pValue pWhiteSpace true 
+            let! values = parseList pValue (Sep (pWhiteSpace, true, 0)) 
             do! skip pWhiteSpace
             do! skipChar ')'
             do! skip pWhiteSpace
