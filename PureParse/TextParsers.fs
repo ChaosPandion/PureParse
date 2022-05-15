@@ -117,4 +117,48 @@ module TextParsers =
             failwith "None of the keywords can be null or empty."
         let description = String.Join (",", keywords)
         let parsers = keywords |> Seq.map parseString<'TState> |> Seq.toList
-        (choose parsers) <??> ("keywords", description)
+        (chooseSync parsers) <??> ("keywords", description)
+
+
+    let private digitToInt = function
+        | x when x >= '0' && x <= '9' -> int x - int '0'
+        | x when x >= 'a' && x <= 'f' -> 10 + int x - int 'a'
+        | x when x >= 'A' && x <= 'F' -> 10 + int x - int 'A'
+        | _ -> failwith ""
+
+    let rec private parseInteger = function
+        | [] -> 0.0
+        | c::cs -> (digitToInt c |> double) * (10.0 ** double cs.Length) + parseInteger cs
+
+    let parseInt32<'TState> : Parser<'TState, int> = 
+        fun (stream:TextStream<'TState>) -> 
+            match stream.Peek (stream.Remaining) with
+            | ValueNone -> Failure (stream, exn())
+            | ValueSome (rm:ReadOnlyMemory<Rune>) -> 
+                let s = rm.Span
+                let mutable e = s.GetEnumerator()
+                let mutable count = 0
+                let mutable complete = false
+                while not complete do
+                    let mutable next = e.MoveNext()
+                    if next then
+                        if isDigit e.Current then
+                            count <- count + 1
+                        else 
+                            complete <- true
+                    else 
+                        complete <- true
+                if count = 0 then
+                    Failure (stream, exn())
+                else 
+                    match stream.Next count with
+                    | ValueNone -> Failure (stream, exn())
+                    | ValueSome (rm:ReadOnlyMemory<Rune>, stream) ->
+                        let s = rm.Span
+                        let mutable i = 0
+                        for x = 0 to s.Length - 1 do
+                            let c = char (s[x].Value)
+                            let h = (digitToInt c) |> double
+                            let remaining = (s.Length - (x + 1)) |> double
+                            i <- i + int(h * (10.0 ** remaining))
+                        Success (stream, i)

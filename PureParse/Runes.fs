@@ -16,6 +16,17 @@ module Runes =
     | RuneString of string
     | RuneCharArray of char[]
 
+    let inline isDigit r = 
+        r >= Rune('0') && r <= Rune('9')
+
+    let inline isNonZeroDigit r = 
+        r >= Rune('1') && r <= Rune('9')
+
+    let inline isHexDigit r = 
+        r >= Rune('0') && r <= Rune('9') || 
+        r >= Rune('a') && r <= Rune('f') || 
+        r >= Rune('A') && r <= Rune('F')    
+
     /// Map the rune to an char
     let (|RuneChar|) (value:Rune) =
         if value.Utf16SequenceLength <> 1 then

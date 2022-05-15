@@ -98,6 +98,12 @@ module Parsers =
         match parser state with
         | Success (state, value) -> Success (state, Some value) 
         | Failure (_, _) -> Success (state, None)
+
+    let satisfy<'TState> (predicate:Rune -> bool) =
+        fun (stream:TextStream<'TState>) ->
+            match stream.Next() with
+            | ValueSome (r, stream) when predicate r -> Success (stream, r) 
+            | _ -> Failure(stream, stream.CreateFailure "Did not satisfy." ParseError)
         
     /// This parser is always a success returning an Option value. The state of the computation is unchanged.
     let peek (parser:M<_, _>) state = 
@@ -128,6 +134,18 @@ module Parsers =
             match a with
             | Some n -> n
             | None -> Failure (state, state.CreateFailure "None of the parsers succeeded." ParseError)
+
+    let chooseSync<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) =
+        fun (stream:TextStream<'TState>) ->
+            let rec loop ps =
+                match ps with
+                | [] -> Failure (stream, stream.CreateFailure "No parser succeeded." ParseError)
+                | p::ps ->
+                    match p stream with
+                    | Success (_, _) as result -> result
+                    | Failure (_, _) -> loop ps
+            loop parsers
+
             
     /// Pass over skip and evaluate parser.
     let skip (parser:M<_, _>) state =

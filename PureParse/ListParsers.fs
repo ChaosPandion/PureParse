@@ -77,6 +77,6 @@ module ListParsers =
                         struct(stream, element::elements, true)
             let struct(stream, elements, success) = parse stream []
             if not success || elements.Length < minElements then 
-                Failure (firstStream, stream.CreateFailure "Failed to creat list." ParseError)
+                Failure (firstStream, stream.CreateFailure (sprintf "Failed to create a list of at least %i elements." minElements) ParseError)
             else
                 Success(stream, elements)

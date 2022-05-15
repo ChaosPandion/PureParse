@@ -9,7 +9,9 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PureParse.Test", "PureParse
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PureParse.Terminal", "PureParse.Terminal\PureParse.Terminal.fsproj", "{5830D821-6628-477B-AB31-CC1C60582723}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PureParse.Examples", "PureParse.Examples\PureParse.Examples.fsproj", "{ACBC998E-E612-4071-8AE4-C25E6E24E1A7}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "PureParse.Examples", "PureParse.Examples\PureParse.Examples.fsproj", "{ACBC998E-E612-4071-8AE4-C25E6E24E1A7}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PureParse.Benchmarks", "PureParse.Benchmarks\PureParse.Benchmarks.fsproj", "{9742B5DF-6CF8-4644-8FF8-5E46E53A2EF9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{ACBC998E-E612-4071-8AE4-C25E6E24E1A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ACBC998E-E612-4071-8AE4-C25E6E24E1A7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ACBC998E-E612-4071-8AE4-C25E6E24E1A7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9742B5DF-6CF8-4644-8FF8-5E46E53A2EF9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9742B5DF-6CF8-4644-8FF8-5E46E53A2EF9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9742B5DF-6CF8-4644-8FF8-5E46E53A2EF9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9742B5DF-6CF8-4644-8FF8-5E46E53A2EF9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

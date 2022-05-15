@@ -147,6 +147,7 @@ module ParseJsonTests =
 
 
     [<Theory>]
+    [<InlineData(100000000, "100000000")>]
     [<InlineData(1.1, "1.1")>]
     [<InlineData(1.12, "1.12")>]
     [<InlineData(1.123, "1.123")>]

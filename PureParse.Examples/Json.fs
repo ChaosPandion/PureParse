@@ -64,10 +64,10 @@ module Json =
     let private parseIntegerPart =
         parse {
             let! sign = opt (parseChar '-')
-            let! digits = digits
+            let! digits = parseInt32
             let signModifier = parseSign sign
-            let integerPart = parseInteger digits
-            return integerPart, signModifier
+            //let integerPart = parseInteger digits
+            return digits, signModifier
         }
 
     let private exponentChar = RuneCharSeq "eE"
@@ -76,10 +76,10 @@ module Json =
         parse {
             let! _ = parseAnyOf exponentChar
             let! s = sign
-            let! d = digits
+            let! d = parseInt32
             let signModifier = parseSign s;
-            let integerPart = parseInteger d;
-            let power = signModifier * integerPart
+            //let integerPart = parseInteger d;
+            let power = signModifier * (double d)
             let result = 10.0 ** power
             return result
         }
@@ -145,7 +145,7 @@ module Json =
             let! ip, sign = parseIntegerPart  
             let! fp = parseFractionalPart <|> result 0.0
             let! ep = parseExponentPart <|> result 1.0
-            let x = ip + fp
+            let x = double ip + fp
             let signed = sign * x
             let n = signed * ep
             return JsonNumber n
@@ -186,7 +186,7 @@ module Json =
         parse {
             let! members = parseList parseMember (Sep (memberSep, false, 0))
             return members |> Map.ofSeq
-        }         
+        }   
 
     let private pElement:Parser<unit,JsonValue> = 
         parse {
@@ -228,7 +228,7 @@ module Json =
     let private pValue:Parser<unit,JsonValue> = 
         parse {
             do! skipWhiteSpace
-            let! v = choose [ parseJsonString; pKeyword; parseJsonNumber; pObject; pArray  ]
+            let! v = chooseSync [ parseJsonString; pKeyword; parseJsonNumber; pObject; pArray  ]
             do! skipWhiteSpace
             return v
         }
