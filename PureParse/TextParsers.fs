@@ -6,6 +6,28 @@ open System.Text
 [<AutoOpen>]
 module TextParsers =
 
+    let charRange<'TState> (lower:char) (upper:char) : Parser<'TState, Rune> =
+        if lower >= upper then
+            failwithf "The value %c must be less than %c" lower upper
+        if Char.IsSurrogate(lower) || Char.IsSurrogate(upper) then
+            failwith "This function does not support surrogates."
+        let message = sprintf "Expect Range: '%c' - '%c'" lower upper
+        let lower = Rune(lower)
+        let upper = Rune(upper)
+        fun (stream:TextStream<'TState>) -> 
+            match stream.Next() with
+            | ValueSome(r, ns) when r >= lower && r <= upper -> Success(ns, r)
+            | _ -> Failure(stream, stream.CreateFailure message ParseError)
+
+    let runeRange<'TState> (lower:Rune) (upper:Rune) : Parser<'TState, Rune> =
+        if lower >= upper then
+            failwithf "The value %O must be less than %O" lower upper
+        let message = sprintf "Expect Range: '%O' - '%O'" lower upper
+        fun (stream:TextStream<'TState>) -> 
+            match stream.Next() with
+            | ValueSome(r, ns) when r >= lower && r <= upper -> Success(ns, r)
+            | _ -> Failure(stream, stream.CreateFailure message ParseError)
+
     let parseRune<'TState> (r:Rune) : Parser<'TState, Rune> =
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with

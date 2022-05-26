@@ -14,7 +14,11 @@ module ListParsers =
         | Until of ending:Parser<'TState, unit>
         | Sep of separator:Parser<'TState, unit> * allowTrailingSeparator:bool * minElements:int
 
-    let parseList<'TState, 'TData> (parser:Parser<'TState, 'TData>) (mode:ListMode<'TState, 'TData>) : Parser<'TState, 'TData list> =
+    let parseList<'TState, 'TData> 
+        (parser:Parser<'TState, 'TData>) 
+        (mode:ListMode<'TState, 'TData>) 
+        : Parser<'TState, 'TData list> =
+
         match mode with
         | Many minElements -> 
             parseMany parser minElements 
@@ -23,7 +27,11 @@ module ListParsers =
         | Sep (separator, allowTrailingSeparator, minElements) -> 
             parseManySep parser separator allowTrailingSeparator minElements
 
-    let parseMany<'TState, 'TElement> (parser:Parser<'TState, 'TElement>) (minElements:int) : Parser<'TState, List<'TElement>> =
+    let parseMany<'TState, 'TElement> 
+        (parser:Parser<'TState, 'TElement>) 
+        (minElements:int)
+        : Parser<'TState, List<'TElement>> =
+
         fun (stream:TextStream<'TState>) ->
             let rec parse stream elements =
                 match parser stream with
@@ -33,11 +41,16 @@ module ListParsers =
                     struct(stream, element::elements)
             let struct(stream, elements) = parse stream []
             if elements.Length < minElements then 
-                Failure (stream, stream.CreateFailure (sprintf "At least %i elements are required." minElements) ParseError)
+                let m = sprintf "At least %i elements are required." minElements
+                Failure (stream, stream.CreateFailure m ParseError)
             else
                 Success(stream, elements)
 
-    let parseUntil<'TState, 'TElement> (parser:Parser<'TState, 'TElement>) (ending:Parser<'TState, unit>): Parser<'TState, List<'TElement>> =
+    let parseUntil<'TState, 'TElement> 
+        (parser:Parser<'TState, 'TElement>) 
+        (ending:Parser<'TState, unit>)
+        : Parser<'TState, List<'TElement>> =
+
         fun (stream:TextStream<'TState>) ->
             let firstStream = stream
             let rec parse stream elements =
@@ -53,11 +66,18 @@ module ListParsers =
                         struct(stream, element::elements, success)
             let struct(stream, elements, success) = parse stream []
             if not success then 
-                Failure (firstStream, stream.CreateFailure "Failed to reach ending parser." ParseError)
+                let m = "Failed to reach ending parser."
+                Failure (firstStream, stream.CreateFailure m ParseError)
             else
                 Success(stream, elements)
 
-    let parseManySep<'TState, 'TElement> (parser:Parser<'TState, 'TElement>) (separator:Parser<'TState, unit>) (allowTrailingSeparator:bool) (minElements:int) : Parser<'TState, List<'TElement>> =
+    let parseManySep<'TState, 'TElement> 
+        (parser:Parser<'TState, 'TElement>) 
+        (separator:Parser<'TState, unit>) 
+        (allowTrailingSeparator:bool) 
+        (minElements:int) 
+        : Parser<'TState, List<'TElement>> =
+
         fun (stream:TextStream<'TState>) ->
             let firstStream = stream
             let rec parse stream elements =
@@ -77,6 +97,7 @@ module ListParsers =
                         struct(stream, element::elements, true)
             let struct(stream, elements, success) = parse stream []
             if not success || elements.Length < minElements then 
-                Failure (firstStream, stream.CreateFailure (sprintf "Failed to create a list of at least %i elements." minElements) ParseError)
+                let m = sprintf "Failed to create a list of at least %i elements." minElements
+                Failure (firstStream, stream.CreateFailure m ParseError)
             else
-                Success(stream, elements)
+                Success (stream, elements)

@@ -16,6 +16,13 @@ module Runes =
     | RuneString of string
     | RuneCharArray of char[]
 
+    /// Map the rune to an char
+    let toChar (value:Rune) =
+        if value.Utf16SequenceLength <> 1 then
+            failwith "Not a valid UTF-16 char"
+        else
+            char value.Value 
+
     let inline isDigit r = 
         r >= Rune('0') && r <= Rune('9')
 

@@ -19,11 +19,12 @@ module rec PLisp =
 
     | PBool of bool
     
+    let booleanKeywords = ["true";"false"]
     let pBool:Parser<unit,PValue> = 
         parse {
-            let! t = parseKeywords [ "true"; "false" ]
+            let! t = parseKeywords booleanKeywords
             return PBool (t = "true")
-        }
+        } <??> ("Parse Boolean", "Expecting true|false")
 
     let firstDigit = RuneCharSeq asciiDigitNoZeroChars
     let digit = RuneCharSeq asciiDigitChars
@@ -85,7 +86,8 @@ module rec PLisp =
             return ()
         }
 
-    let private nameChars = RuneCharSeq (asciiLetterChars)
+    let private specialChars = (['!';'@';'#';'$';'^';'&';'*';'-';'+';'=';'?';'/';'<';'>';'~';'`';'_';'[';']';';';':'] |> Set.ofList)
+    let private nameChars = RuneCharSeq (asciiLetterChars |> Set.union specialChars)
     let private pName:Parser<unit,PValue> = map (parseCharString (parseAnyOf nameChars)) PName
         
     let pList:Parser<unit,PValue> = 

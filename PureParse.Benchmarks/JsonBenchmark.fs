@@ -1,4 +1,4 @@
-﻿module PureParse.Benchmarks 
+﻿namespace PureParse.Benchmarks 
 
 open System
 open BenchmarkDotNet
