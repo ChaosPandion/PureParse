@@ -6,19 +6,23 @@ open PureParse.Examples
 open System
 open System.IO
 
-let json = File.ReadAllText("c:/test.json/5c3935c8ab777f04f83f272425b750f9.json")
-let x1 = ResizeArray(10000000)
-let x2 = ResizeArray(10000000)
-for i in [0..20] do
-    let sw = System.Diagnostics.Stopwatch.StartNew()
-    let r1 = Json.parseText json
-    sw.Stop()
-    x2.Add(sw.Elapsed)
-    x1.Add(r1)
-    printfn "%O" (sw.Elapsed)
+let x = CharSets.unicodeDigitChars
+let y = CharSets.asciiChars
+let z = CharSets.controlChars
 
-let s = x2 |> Seq.averageBy (fun e -> e.TotalMilliseconds)
-printfn "%O" (TimeSpan.FromMilliseconds(s))
+//let json = File.ReadAllText("c:/test.json/5c3935c8ab777f04f83f272425b750f9.json")
+//let x1 = ResizeArray(10000000)
+//let x2 = ResizeArray(10000000)
+//for i in [0..20] do
+//    let sw = System.Diagnostics.Stopwatch.StartNew()
+//    let r1 = Json.parseText json
+//    sw.Stop()
+//    x2.Add(sw.Elapsed)
+//    x1.Add(r1)
+//    printfn "%O" (sw.Elapsed)
+
+//let s = x2 |> Seq.averageBy (fun e -> e.TotalMilliseconds)
+//printfn "%O" (TimeSpan.FromMilliseconds(s))
 //let x1 = ResizeArray(10000000)
 //let sw = System.Diagnostics.Stopwatch.StartNew()
 //for i in [0..10000000] do

@@ -10,12 +10,12 @@ open System.Runtime.Intrinsics;
 module Parsers =
 
     /// The 'bind' function of the monad
-    let bind (parser: Parser<_, _>) (transform: Transform<_, _, _>) state = 
-        match parser state with
-        | Success (state, value) -> 
-            transform value state
+    let bind (parser: Parser<_, _>) (transform: Transform<_, _, _>) stream = 
+        match parser stream with
+        | Success (stream, value) -> 
+            transform value stream
         | Failure (_, message) -> 
-            Failure (state, message)
+            Failure (stream, message)
             
     /// The 'bind' function of the monad
     let (>>=) p f s = bind p f s

@@ -68,7 +68,7 @@ module ListParserTests =
     [<InlineData("1,1,1,1,", 4, false, 0, true)>]
     [<InlineData("1,1,1,1", 4, true, 1, false)>]
     [<InlineData("1,1,1,1", 4, false, 1, false)>]
-    [<InlineData("1,1,1,1,", 4, false, 1, true)>]
+    [<InlineData("1,1,1,1,", 0, false, 1, true)>]
     [<InlineData("", 0, false, 1, true)>]
     [<InlineData("1,1,1,1", 4, true, 2, false)>]
     [<InlineData("1,1,1,1", 4, false, 2, false)>]

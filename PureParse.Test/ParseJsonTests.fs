@@ -77,7 +77,9 @@ module ParseJsonTests =
     [<InlineData("\n[ ] ")>]
     [<InlineData("\n[]\n")>]
     [<InlineData("\n[\n\t]\n")>]
-    [<InlineData("\n[\n\t]\r ")>]
+    [<InlineData("\r\n[\r\n\t]\r\n")>]
+    [<InlineData("\r\n[\t]")>]
+    [<InlineData("[\t]\r\n")>]
     let ``JSON Parse An Empty Array`` text =
         let result = parseText text
         let expect =  JsonArray []
