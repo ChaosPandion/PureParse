@@ -133,7 +133,8 @@ module Json =
         }      
         
     let private pString:Parser<unit,string> = 
-        parse {
+        parseProduction "String" 
+            <| parse {
             do! skipChar '\"'
             let! body = pStringBody
             do! skipChar '\"'
@@ -141,7 +142,8 @@ module Json =
         }
 
     let private parseJsonNumber =
-        parse {
+        parseProduction "Number" 
+            <| parse {
             let! ip, sign = parseIntegerPart  
             let! fp = parseFractionalPart <|> result 0.0
             let! ep = parseExponentPart <|> result 1.0
@@ -159,17 +161,34 @@ module Json =
 
     let private keywords = [ "true"; "false"; "null" ]
 
-    let private pKeyword:Parser<unit,JsonValue> = 
-        parse {
-            match! parseKeywords keywords with
-            | "true" -> return JsonBoolean true
-            | "false" -> return JsonBoolean false
-            | "null" -> return JsonNull
-            | _ -> return! fail "No Valid Keyword"
-        }
+
+    let private pNull:Parser<unit,JsonValue> =
+        parseProduction "Null" 
+            <| parse {
+                do! skipString "null"
+                return JsonNull
+            }
+    let private pBoolean:Parser<unit,JsonValue> =
+        parseProduction "Boolean" 
+            <| ((parse {
+                do! skipString "true"
+                return JsonBoolean true
+            }) <|> (parse {
+                do! skipString "false"
+                return JsonBoolean false
+            }))
+    //let private pKeyword:Parser<unit,JsonValue> = 
+    //    parse {
+    //        match! parseKeywords keywords with
+    //        | "true" -> return JsonBoolean true
+    //        | "false" -> return JsonBoolean false
+    //        | "null" -> return JsonNull
+    //        | _ -> return! fail "No Valid Keyword"
+    //    }
 
     let private parseMember:Parser<unit,string * JsonValue> = 
-        parse {
+        parseProduction "Member" 
+            <| parse {
             do! skipWhiteSpace
             let! name = pString
             do! skipWhiteSpace
@@ -180,16 +199,18 @@ module Json =
             return name, value
         }
 
-    let private memberSep = skipWhiteSpace  |-> skipChar ',' |-> skipWhiteSpace
+    let private memberSep = parseProduction "Member Separator" (skipWhiteSpace  |-> skipChar ',' |-> skipWhiteSpace)
 
     let private parseMembers:Parser<unit,Map<string, JsonValue>> = 
-        parse {
+        parseProduction "Members" 
+            <| parse {
             let! members = parseList parseMember (Sep (memberSep, false, 0))
             return members |> Map.ofSeq
         }   
 
     let private pElement:Parser<unit,JsonValue> = 
-        parse {
+        parseProduction "Element" 
+            <| parse {
             do! skipWhiteSpace
             let! value = pValue
             do! skipWhiteSpace
@@ -197,24 +218,41 @@ module Json =
         }
 
     let private pElements:Parser<unit,List<JsonValue>> = 
-        parse {
+        parseProduction "Elements" 
+            <| parse {
             return! parseList pElement (Sep (skipChar ',', false, 0))
-        }  
-
+        }
+        
+    let private pBeginObject:Parser<unit, unit> =
+        parseProduction "Begin Object" 
+            <| parse {
+                do! skipWhiteSpace
+                do! skipChar '{'
+                do! skipWhiteSpace
+                return ()
+            }
+            
+    let private pEndObject:Parser<unit, unit> =
+        parseProduction "End Object" 
+            <| parse {
+                do! skipWhiteSpace
+                do! skipChar '}'
+                do! skipWhiteSpace
+                return ()
+            }
     let private pObject:Parser<unit,JsonValue> = 
-        parse {
-            do! skipWhiteSpace
-            do! skipChar '{'
-            do! skipWhiteSpace
-            let! members = opt parseMembers
-            do! skipWhiteSpace
-            do! skipChar '}'
-            do! skipWhiteSpace
-            return JsonObject (Option.defaultWith (fun () -> Map.empty) members)
+        parseProduction "Object" 
+            <| parse {
+            do! pBeginObject
+            let! members = parseMembers
+            do! pEndObject
+            return JsonObject members
+            //return JsonObject (Option.defaultWith (fun () -> Map.empty) members)
         }
 
     let private pArray:Parser<unit,JsonValue> = 
-        parse {
+        parseProduction "Array" 
+            <| parse {
             do! skipWhiteSpace
             do! skipChar '['
             do! skipWhiteSpace
@@ -226,11 +264,19 @@ module Json =
         }
 
     let private pValue:Parser<unit,JsonValue> = 
-        parse {
-            do! skipWhiteSpace
-            let! v = chooseSync [ parseJsonString; pKeyword; parseJsonNumber; pObject; pArray  ]
-            do! skipWhiteSpace
-            return v
-        }
+        parseProduction "Value" 
+            <| parse {
+                do! skipWhiteSpace
+                let! v = chooseSync [ 
+                    parseJsonString; 
+                    pBoolean;
+                    pNull;
+                    parseJsonNumber; 
+                    pObject; 
+                    pArray  ]
+                do! skipWhiteSpace
+                return v
+            }
 
     let parseText text = run pValue text ()
+    let parser = pValue

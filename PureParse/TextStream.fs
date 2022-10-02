@@ -6,6 +6,7 @@ open System.Buffers
 open FSharp.NativeInterop
 open System.Numerics;
 open System.Runtime.Intrinsics;
+open Events
 
 [<AutoOpen>]
 module TextStream = 
@@ -146,7 +147,13 @@ module TextStream =
                         else 
                             ValueNone
 
-        type TextStream<'TState> (state: 'TState, memory:ReadOnlyMemory<Rune>, index: int, line: int, column: int) = 
+        type TextStream<'TState> (
+                state: 'TState, 
+                events: EventState<'TState>,
+                memory:ReadOnlyMemory<Rune>, 
+                index: int, 
+                line: int, 
+                column: int) = 
 
             static let newline = new Rune('\n')
 
@@ -159,13 +166,35 @@ module TextStream =
                 | Between (Bounded lower, Unbounded) ->  max lower remaining
                 | Between (Unbounded, Unbounded) | Exact Unbounded | Remaining ->  remaining
 
-            static member Create<'TState> (state: 'TState, text:string) =
+            static member Create<'TState> (state: 'TState, text:string, ?eventSetup:EventSetup) =
                 if text = null then
                     nullArg (nameof(text))
-                let memory = ReadOnlyMemory(text.ReplaceLineEndings("\n").EnumerateRunes() |> Seq.toArray)                
-                TextStream<'TState>(state, memory, 0, 1, 1)
+                let memory = ReadOnlyMemory(text.ReplaceLineEndings("\n").EnumerateRunes() |> Seq.toArray)   
+                let events = 
+                    let nameDefault, versionDefault, optionsDefault = "", "", EventOptions.FailureOnly
+                    match eventSetup with
+                    | Some ({ name = n; version = v; options = o; }) ->
+                        let n, v, o = Option.defaultValue nameDefault n, Option.defaultValue versionDefault v, Option.defaultValue optionsDefault o
+                        Events.createInitialEventState<'TState> n v o
+                    | None ->
+                        Events.createInitialEventState<'TState> nameDefault versionDefault optionsDefault
+                TextStream<'TState>(state, events, memory, 0, 1, 1)
 
 
+            member _.CreateEventData (parserName, message) = {
+                        parserName = parserName
+                        message = message
+                        index = index
+                        line = line
+                        column = column
+                        timestamp = getTimeStamp ()
+                        state = state
+                    }
+            member _.WithEvent (event:Event<_>) =
+                TextStream<'TState>(state, { events with events = event::events.events }, memory, index, line, column)
+            member _.WithEvents (events:EventState<_>) =
+                TextStream<'TState>(state, events, memory, index, line, column)
+            member _.Events = events
             member _.State = state
 
             member _.Index = index
@@ -200,7 +229,7 @@ module TextStream =
                 if index < memory.Length then 
                     let r = memory.Slice(index, 1).Span[0]
                     let l, c = if r = newline then line + 1, 1 else line, column + 1
-                    ValueSome (r, TextStream<'TState>(state, memory, index + 1, l, c))
+                    ValueSome (r, TextStream<'TState>(state, events, memory, index + 1, l, c))
                 else 
                     ValueNone
 
@@ -220,7 +249,7 @@ module TextStream =
                         if r = newline then
                             c <- 1
                             l <- l + 1
-                    ValueSome (r, TextStream<'TState>(state, memory, index + count, l, c))
+                    ValueSome (r, TextStream<'TState>(state, events, memory, index + count, l, c))
                     
             member _.CreateFailure<'e, 'u when 'e :> exn> (data:'u) (f:'u * int * int * int -> 'e) =
                 f (data, index, line, column)

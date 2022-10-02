@@ -206,12 +206,12 @@ module Number =
         }
 
     let private parseIntegerPart<'TState> : Parser<'TState, int * double> =
-            parse {
-                let! sign = opt (parseChar '-' <|> parseChar '+')
-                let! digits = parseInt32
-                let signModifier = parseSign sign
-                return digits, signModifier
-            }
+        parse {
+            let! sign = opt (parseChar '-' <|> parseChar '+')
+            let! digits = parseInt32
+            let signModifier = parseSign sign
+            return digits, signModifier
+        }
 
     let private parseInteger<'TState> : Parser<'TState, int64> =        
         parse {

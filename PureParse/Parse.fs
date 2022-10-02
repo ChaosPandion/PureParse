@@ -1,6 +1,7 @@
 ﻿namespace PureParse
 
 open Parsers
+open TextStream
 
 [<AutoOpen>]
 module Parse =
@@ -8,30 +9,33 @@ module Parse =
     type ParseBuilder () = 
 
         member _.Bind (p:Parser<_, _>, f:Transform<_, _, _>):Parser<_, _> = 
-            fun state -> bind p f state
+            fun stream -> bind p f stream
 
         member _.Return (value):Parser<_, _> = 
-            fun state -> result value state
+            fun stream -> result value stream
 
         member _.Zero ():Parser<_, _> = 
-            fun state -> result () state
+            fun stream -> result () stream
 
         member _.ReturnFrom (p:Parser<_, _>):Parser<_, _> = 
-            fun state -> p state
+            fun stream -> p stream
 
         member _.Delay (delayed:Delayed<_, _>) : Parser<_, _> = 
-            fun state -> delayed () state
+            fun stream -> delayed () stream
 
         member _.Run (parser:Parser<_, _>) : Parser<_, _> = 
-            fun state -> parser state
+            fun stream -> parser stream
 
     let parse = ParseBuilder()
 
 
     let run (parser) (text) (state) =
-        let stream = TextStream.TextStream.Create(state, text)
+        let stream = TextStream.Create(state, text)
         match parser stream with
-        | Success (_, result) -> result
-        | Failure (_, error) -> 
+        | Success (stream, result) -> result
+        | Failure (stream, error) -> 
             printfn "%O" error
             raise error
+    let run2 (parser) (text) (state) =
+        let stream = TextStream.Create(state, text)
+        parser stream
