@@ -150,7 +150,8 @@ module TextStream =
         type TextStream<'TState> (
                 state: 'TState, 
                 events: EventState<'TState>,
-                memory:ReadOnlyMemory<Rune>, 
+                memory: ReadOnlyMemory<Rune>, 
+                eventChannel: MailboxProcessor<Event<'TState>> option,
                 index: int, 
                 line: int, 
                 column: int) = 
@@ -166,7 +167,7 @@ module TextStream =
                 | Between (Bounded lower, Unbounded) ->  max lower remaining
                 | Between (Unbounded, Unbounded) | Exact Unbounded | Remaining ->  remaining
 
-            static member Create<'TState> (state: 'TState, text:string, ?eventSetup:EventSetup) =
+            static member Create<'TState> (state: 'TState, text:string, ?eventSetup:EventSetup, ?eventChannel:MailboxProcessor<Event<'TState>>) =
                 if text = null then
                     nullArg (nameof(text))
                 let memory = ReadOnlyMemory(text.ReplaceLineEndings("\n").EnumerateRunes() |> Seq.toArray)   
@@ -178,9 +179,14 @@ module TextStream =
                         Events.createInitialEventState<'TState> n v o
                     | None ->
                         Events.createInitialEventState<'TState> nameDefault versionDefault optionsDefault
-                TextStream<'TState>(state, events, memory, 0, 1, 1)
+                TextStream<'TState>(state, events, memory, eventChannel, 0, 1, 1)
 
-
+                
+            member _.ReportEvent (event:Event<_>) =
+                match eventChannel with
+                | Some ec -> ec.Post event
+                | None -> ()
+                 
             member _.CreateEventData (parserName, message) = {
                         parserName = parserName
                         message = message
@@ -189,11 +195,12 @@ module TextStream =
                         column = column
                         timestamp = getTimeStamp ()
                         state = state
+                        error = exn()
                     }
             member _.WithEvent (event:Event<_>) =
-                TextStream<'TState>(state, { events with events = event::events.events }, memory, index, line, column)
+                TextStream<'TState>(state, { events with events = event::events.events }, memory, eventChannel, index, line, column)
             member _.WithEvents (events:EventState<_>) =
-                TextStream<'TState>(state, events, memory, index, line, column)
+                TextStream<'TState>(state, events, memory, eventChannel, index, line, column)
             member _.Events = events
             member _.State = state
 
@@ -229,7 +236,7 @@ module TextStream =
                 if index < memory.Length then 
                     let r = memory.Slice(index, 1).Span[0]
                     let l, c = if r = newline then line + 1, 1 else line, column + 1
-                    ValueSome (r, TextStream<'TState>(state, events, memory, index + 1, l, c))
+                    ValueSome (r, TextStream<'TState>(state, events, memory, eventChannel, index + 1, l, c))
                 else 
                     ValueNone
 
@@ -249,7 +256,7 @@ module TextStream =
                         if r = newline then
                             c <- 1
                             l <- l + 1
-                    ValueSome (r, TextStream<'TState>(state, events, memory, index + count, l, c))
+                    ValueSome (r, TextStream<'TState>(state, events, memory, eventChannel, index + count, l, c))
                     
             member _.CreateFailure<'e, 'u when 'e :> exn> (data:'u) (f:'u * int * int * int -> 'e) =
                 f (data, index, line, column)

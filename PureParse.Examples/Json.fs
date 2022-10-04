@@ -66,7 +66,6 @@ module Json =
             let! sign = opt (parseChar '-')
             let! digits = parseInt32
             let signModifier = parseSign sign
-            //let integerPart = parseInteger digits
             return digits, signModifier
         }
 
@@ -78,7 +77,6 @@ module Json =
             let! s = sign
             let! d = parseInt32
             let signModifier = parseSign s;
-            //let integerPart = parseInteger d;
             let power = signModifier * (double d)
             let result = 10.0 ** power
             return result
@@ -177,90 +175,66 @@ module Json =
                 do! skipString "false"
                 return JsonBoolean false
             }))
-    //let private pKeyword:Parser<unit,JsonValue> = 
-    //    parse {
-    //        match! parseKeywords keywords with
-    //        | "true" -> return JsonBoolean true
-    //        | "false" -> return JsonBoolean false
-    //        | "null" -> return JsonNull
-    //        | _ -> return! fail "No Valid Keyword"
-    //    }
-
-    let private parseMember:Parser<unit,string * JsonValue> = 
-        parseProduction "Member" 
-            <| parse {
+    
+    let private pMemberNameSeparator = 
+        parseProduction "MemberNameSeparator" (skipWhiteSpace  |-> skipChar ':' |-> skipWhiteSpace)
+    let private pMemberName:Parser<unit,string> = 
+        parseProduction "Member Name" <| parse {
             do! skipWhiteSpace
             let! name = pString
             do! skipWhiteSpace
-            do! skipChar ':'
-            do! skipWhiteSpace
+            return name
+        } 
+    let private parseMember:Parser<unit,string * JsonValue> = 
+        parseProduction "Member" 
+            <| parse {
+            let! name = pMemberName
+            do! pMemberNameSeparator
             let! value = pValue
-            do! skipWhiteSpace
             return name, value
         }
-
-    let private memberSep = parseProduction "Member Separator" (skipWhiteSpace  |-> skipChar ',' |-> skipWhiteSpace)
-
-    let private parseMembers:Parser<unit,Map<string, JsonValue>> = 
+    let private pMemberSep:Parser<unit, unit> = 
+        parseProduction "Member Separator" (skipWhiteSpace  |-> skipChar ',' |-> skipWhiteSpace)
+    let private pMembers:Parser<unit,Map<string, JsonValue>> = 
         parseProduction "Members" 
             <| parse {
-            let! members = parseList parseMember (Sep (memberSep, false, 0))
+            let! members = parseList parseMember (Sep (pMemberSep, false, 0))
             return members |> Map.ofSeq
-        }   
+        }        
+    let private pBeginObject:Parser<unit, unit> =
+        parseProduction "Begin Object" (skipWhiteSpace  |-> skipChar '{' |-> skipWhiteSpace)            
+    let private pEndObject:Parser<unit, unit> =
+        parseProduction "End Object" (skipWhiteSpace  |-> skipChar '}' |-> skipWhiteSpace)
+    let private pObject:Parser<unit,JsonValue> = 
+        parseProduction "Object" 
+            <| parse {
+            do! pBeginObject
+            let! members = pMembers
+            do! pEndObject
+            return JsonObject members
+        }           
 
     let private pElement:Parser<unit,JsonValue> = 
-        parseProduction "Element" 
-            <| parse {
+        parseProduction "Element" <| parse {
             do! skipWhiteSpace
             let! value = pValue
             do! skipWhiteSpace
             return value
         }
-
+    let private pElementSeparator:Parser<unit, unit> = 
+        parseProduction "Element Separator" (skipWhiteSpace  |-> skipChar ',' |-> skipWhiteSpace)
     let private pElements:Parser<unit,List<JsonValue>> = 
-        parseProduction "Elements" 
-            <| parse {
-            return! parseList pElement (Sep (skipChar ',', false, 0))
-        }
-        
-    let private pBeginObject:Parser<unit, unit> =
-        parseProduction "Begin Object" 
-            <| parse {
-                do! skipWhiteSpace
-                do! skipChar '{'
-                do! skipWhiteSpace
-                return ()
-            }
-            
-    let private pEndObject:Parser<unit, unit> =
-        parseProduction "End Object" 
-            <| parse {
-                do! skipWhiteSpace
-                do! skipChar '}'
-                do! skipWhiteSpace
-                return ()
-            }
-    let private pObject:Parser<unit,JsonValue> = 
-        parseProduction "Object" 
-            <| parse {
-            do! pBeginObject
-            let! members = parseMembers
-            do! pEndObject
-            return JsonObject members
-            //return JsonObject (Option.defaultWith (fun () -> Map.empty) members)
-        }
-
+        parseProduction "Elements" (parseList pElement (Sep (pElementSeparator, false, 0)))
+    let private pBeginArray:Parser<unit,unit> = 
+        parseProduction "Begin Array" (skipWhiteSpace |-> skipChar '[' |-> skipWhiteSpace)
+    let private pEndArray:Parser<unit,unit> = 
+        parseProduction "End Array" (skipWhiteSpace |-> skipChar ']' |-> skipWhiteSpace)
     let private pArray:Parser<unit,JsonValue> = 
-        parseProduction "Array" 
-            <| parse {
-            do! skipWhiteSpace
-            do! skipChar '['
-            do! skipWhiteSpace
-            let! elements = opt pElements
-            do! skipWhiteSpace
-            do! skipChar ']'
-            do! skipWhiteSpace
-            return JsonArray (Option.defaultWith (fun () -> List.empty) elements)
+        parseProduction "Array" <| parse {
+            do! pBeginArray
+            let! elements = pElements
+            do! pEndArray
+            return JsonArray elements
         }
 
     let private pValue:Parser<unit,JsonValue> = 

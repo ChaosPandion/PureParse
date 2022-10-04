@@ -143,7 +143,7 @@ module Parsers =
                 | p::ps ->
                     match p stream with
                     | Success (_, _) as result -> result
-                    | Failure (s, _) -> loop s ps
+                    | Failure (s, _) -> loop (stream.WithEvents(s.Events)) ps
             loop stream parsers
 
             
@@ -193,13 +193,16 @@ module Parsers =
                 parser stream
             | _ ->
                 let ev = EnterProduction(stream.CreateEventData(name, "")) 
-                let stream = stream.WithEvent ev            
+                let stream = stream.WithEvent ev   
+                stream.ReportEvent ev         
                 match parser stream with
                 | Success (stream, v) ->                
                     let ev = ExitProductionSuccess(stream.CreateEventData(name, ""))  
                     let stream = stream.WithEvent ev
+                    stream.ReportEvent ev
                     Success(stream, v)
                 | Failure (stream, error) ->  
-                    let ev = ExitProductionFailure(stream.CreateEventData(name, ""), error)  
+                    let ev = ExitProductionFailure({ stream.CreateEventData(name, "") with error = error })  
                     let stream = stream.WithEvent ev
+                    stream.ReportEvent ev
                     Failure(stream, error)

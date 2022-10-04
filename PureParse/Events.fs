@@ -1,5 +1,6 @@
 ﻿namespace PureParse
 
+
 [<AutoOpen>]
 module Events = begin
 
@@ -11,15 +12,98 @@ module Events = begin
             column: int
             timestamp: int64
             state: 'TState
+            error: exn 
         }
 
         [<Struct>]
         type Event<'TState> =
             | EnterProduction of enterProduction: EventData<'TState>
             | ExitProductionSuccess of exitProductionSuccess: EventData<'TState>
-            | ExitProductionFailure of exitProductionFailure: EventData<'TState> * exitProductionFailureError:exn  
-            | ParseSuccess of success: EventData<'TState>
-            | ParseFailure of failure: EventData<'TState> * error:exn       
+            | ExitProductionFailure of exitProductionFailure: EventData<'TState>
+            //| ParseSuccess of success: EventData<'TState>
+            //| ParseFailure of failure: EventData<'TState>
+            | ParseComplete of complete:EventData<'TState>
+
+        type EventTree<'TState> =
+            | Nil
+            | SucceededProduction of ProductionData<'TState> 
+            | FailedProduction of ProductionData<'TState> 
+        and ProductionData<'TState> = { 
+            enterData: EventData<'TState>; 
+            exitData: EventData<'TState>;
+            //parent:EventTree<'TState>; 
+            children:EventTree<'TState> list }
+        and ProductionDataBuilder<'TState> = { 
+            mutable success: bool
+            mutable enterData: Option<EventData<'TState>> 
+            mutable exitData: Option<EventData<'TState>>
+            //mutable parent:Option<ProductionDataBuilder<'TState>>
+            mutable children:ResizeArray<ProductionDataBuilder<'TState>> }
+
+            
+        type EventChannel<'TState> = Event<'TState> -> unit
+
+        let createEventTreeBuilder<'TState> (acceptResult:EventTree<'TState> -> unit) =
+            MailboxProcessor<Event<'TState>>.Start(
+                fun inbox ->
+                    let rec run () =
+                        async {
+                            let stack = System.Collections.Generic.Stack<ProductionDataBuilder<'TState>>()
+                            let mutable current: option<ProductionDataBuilder<'TState>> = None
+                            while true do
+                                match! inbox.Receive () with
+                                | EnterProduction eventData ->
+                                    let production = { 
+                                        success = false
+                                        enterData = Some eventData
+                                        exitData = None
+                                        children = ResizeArray() }
+                                    match current with
+                                    | None -> ()
+                                    | Some c ->
+                                        c.children.Add production
+                                        stack.Push c
+                                    current <- Some production
+                                | ExitProductionSuccess eventData ->
+                                    match current with
+                                    | None -> failwith "Invalid event sequence"
+                                    | Some c ->
+                                        c.success <- true
+                                        c.exitData <- Some eventData
+                                        if stack.Count > 0 then
+                                            current <- Some (stack.Pop ())
+                                | ExitProductionFailure eventData ->
+                                    match current with
+                                    | None -> failwith "Invalid event sequence"
+                                    | Some c ->
+                                        c.success <- false
+                                        c.exitData <- Some eventData
+                                        if stack.Count > 0 then
+                                            current <- Some (stack.Pop ())
+                                | ParseComplete eventData ->
+                                    if stack.Count <> 0 then
+                                        failwith "Invalid event sequence"
+
+                                    let rec build (d:ProductionDataBuilder<'TState>) =
+                                        match d with
+                                        | { success = true; enterData = Some enter; exitData = Some exit; children = _ } ->
+                                                SucceededProduction { 
+                                                    enterData = enter 
+                                                    exitData = exit
+                                                    children = d.children |> Seq.map build |> Seq.toList
+                                                } 
+                                        | { success = false; enterData = Some enter; exitData = Some exit; children = _ } ->
+                                                FailedProduction { 
+                                                    enterData = enter 
+                                                    exitData = exit
+                                                    children = d.children |> Seq.map build |> Seq.toList
+                                                } 
+                                        | _ -> failwith ""
+                                    let tree = build current.Value
+                                    acceptResult tree
+                                    return ()
+                        }
+                    run ())
 
         type EventOptions =
             | CompleteTree
