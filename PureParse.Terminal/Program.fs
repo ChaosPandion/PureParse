@@ -8,9 +8,12 @@ open System.IO
 
 let accept tree = 
 
+    let html = EventTree.createHtml tree
+    System.IO.File.WriteAllText ("C:/Users/Matthew/Desktop/result.html", html)
+
     ()
 
-let json = "{ \"number\": 123 }"
+let json = "[ 123, true, false, { \"a\": f } ]"
 match run2 Json.parser json () accept with
 | Success(stream, r) ->
     System.Console.ReadLine() 

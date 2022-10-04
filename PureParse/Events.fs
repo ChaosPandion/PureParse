@@ -25,7 +25,6 @@ module Events = begin
             | ParseComplete of complete:EventData<'TState>
 
         type EventTree<'TState> =
-            | Nil
             | SucceededProduction of ProductionData<'TState> 
             | FailedProduction of ProductionData<'TState> 
         and ProductionData<'TState> = { 
@@ -141,5 +140,61 @@ module Events = begin
                 timestamp = getTimeStamp ();
                 events = [] 
             }
+
+
+        
+
+        module EventTree = begin
+
+                let createHtml<'TState> (eventTree:EventTree<'TState>) : string =
+                    let opening = $"""
+                        <html>
+                            <head>
+                                <style type="text/css">
+                                    .production {{
+                                        padding: 5px;
+                                        margin: 2px;
+                                        margin-left: 20px;
+                                        /*border:2px dashed black;*/
+                                    }}
+                                    .production-name {{
+                                        color:black;
+                                        font-weight:bold;
+                                        display:block;
+                                        margin-left:5px;
+                                    }}
+                                    .success {{
+                                        color:green;
+                                    }}
+                                    .failure {{
+                                        color:red;
+                                    }}
+                                </style>
+                            </head>
+                            <body>
+                        
+                    """
+                    let rec run id (eventTree:EventTree<'TState>) =
+                        let getBeginTag name success = 
+                            $"""
+                                <div id="{id}" class="production {if success then "success" else "failure"}">
+                                    <span class="production-name {if success then "success" else "failure"}">{name}</span>
+                            
+                            """
+                        let beginTag, data, success =
+                            match eventTree with
+                            | SucceededProduction data -> getBeginTag data.enterData.parserName true, data, true
+                            | FailedProduction data -> getBeginTag data.enterData.parserName false, data, false
+                        let children = 
+                            data.children 
+                            |> List.mapi (fun index child -> run (id + "-c" + string index) child)
+                        let body = System.String.Join ("", children)
+                        beginTag + body + "</div>"
+
+                    opening + (run "root" eventTree) + "</body></html>"
+
+
+
+            end
 
     end
