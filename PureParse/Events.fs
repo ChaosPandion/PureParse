@@ -160,8 +160,13 @@ module Events = begin
                                     .production-name {{
                                         color:black;
                                         font-weight:bold;
-                                        display:block;
+                                        display:inline;
                                         margin-left:5px;
+                                        font-size:20px;
+                                    }}
+                                    .expand {{
+										cursor:pointer;
+                                        font-size:20px;
                                     }}
                                     .success {{
                                         color:green;
@@ -170,21 +175,35 @@ module Events = begin
                                         color:red;
                                     }}
                                 </style>
+								<script type="text/javascript">
+									function expandOrCollapse(id) {{
+										let element = document.getElementById(id);
+										let expanded = element.getAttribute("expanded")
+										let isExpanded = expanded == "true";
+										let display = isExpanded ? "block" : "none"
+										let text = isExpanded ? "&minus;" : "&plus;";
+										
+										element.setAttribute("expanded", isExpanded ? "false" : "true");
+										document.querySelectorAll("#" + id + " > div").forEach(a => a.style.display = display);
+										document.querySelectorAll("#" + id + " > span.expand").forEach(a => a.innerHTML = text);
+									}}
+								</script>
                             </head>
                             <body>
                         
                     """
                     let rec run id (eventTree:EventTree<'TState>) =
-                        let getBeginTag name success = 
+                        let getBeginTag (data:ProductionData<'TState>) success = 
                             $"""
-                                <div id="{id}" class="production {if success then "success" else "failure"}">
-                                    <span class="production-name {if success then "success" else "failure"}">{name}</span>
-                            
+                                <div id="{id}" expanded="false" class="{id} production {if success then "success" else "failure"}">
+                                    <span onclick="expandOrCollapse('{id}')" class="expand {if success then "success" else "failure"}">&minus;</span>
+                                    <span class="production-name {if success then "success" else "failure"}">{data.enterData.parserName}</span>
+                                    <span class="">index={data.enterData.index}, column={data.enterData.column}, line={data.enterData.line}</span>
                             """
                         let beginTag, data, success =
                             match eventTree with
-                            | SucceededProduction data -> getBeginTag data.enterData.parserName true, data, true
-                            | FailedProduction data -> getBeginTag data.enterData.parserName false, data, false
+                            | SucceededProduction data -> getBeginTag data true, data, true
+                            | FailedProduction data -> getBeginTag data false, data, false
                         let children = 
                             data.children 
                             |> List.mapi (fun index child -> run (id + "-c" + string index) child)
