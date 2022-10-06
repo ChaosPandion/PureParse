@@ -218,6 +218,7 @@ module ParseJsonTests =
     [<InlineData("\u01aa", "\"\\u01aa\"")>]
     [<InlineData("\u11AA", "\"\\u11AA\"")>]
     [<InlineData("\u11aa", "\"\\u11aa\"")>]
+    [<InlineData("\ud83e\uddd0", "\"\\ud83e\\uddd0\"")>]
     [<InlineData("This is a complete sentence.", "\"This is a complete sentence.\"")>]
     [<InlineData("This is a complete sentence.", " \"This is a complete sentence.\" ")>]
     [<InlineData("This is a complete sentence.", "\r\n\t\"This is a complete sentence.\" ")>]

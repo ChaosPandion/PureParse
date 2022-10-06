@@ -114,11 +114,27 @@ module Json =
                 let! h2 = hexDigit 
                 let! h3 = hexDigit 
                 let! h4 = hexDigit
-                let v = ((digitToInt h1) * 4096) + 
+                let x = ((digitToInt h1) * 4096) + 
                             ((digitToInt h2) * 256) + 
                             ((digitToInt h3) * 16) + 
                             (digitToInt h4)
-                return Rune(char v)
+                let c = char x
+                if System.Char.IsHighSurrogate c then
+                    do! skipChar '\\'
+                    do! skipChar 'u'
+                    let! h1 = hexDigit
+                    let! h2 = hexDigit 
+                    let! h3 = hexDigit 
+                    let! h4 = hexDigit
+                    let y = ((digitToInt h1) * 4096) + 
+                                ((digitToInt h2) * 256) + 
+                                ((digitToInt h3) * 16) + 
+                                (digitToInt h4)
+                    let low = char y
+                    return Rune(c, low)
+
+                else
+                    return Rune(c)
             | _ -> return! fail "fatal error"
         }
 
