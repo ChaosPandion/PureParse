@@ -1,5 +1,6 @@
 ﻿namespace PureParse
 
+open System.Threading.Channels
 open Parsers
 open TextStream
 
@@ -30,20 +31,36 @@ module Parse =
 
 
     let run (parser) (text) (state) =
-        let stream, m = TextStream.Create(state, text, fun tree -> ())
-        use _ = m
+        let stream, mailbox = TextStream.Create(state, text, fun tree -> ())
+        use _ = mailbox
         match parser stream with
         | Success (stream, result) -> result
         | Failure (stream, error) -> 
             printfn "%O" error
             raise error
-    let run2 (parser) (text:string) (state) acceptEventTree =
-        let stream, m = TextStream.Create(state, text, acceptEventTree)
-        use _ = m
-        match parser stream with
-        | Success (stream, result) as r -> 
-            stream.ReportEvent (ParseComplete(stream.CreateEventData("", "")))
-            r
-        | Failure (stream, error) as r -> 
-            stream.ReportEvent (ParseComplete(stream.CreateEventData("", "")))
-            r
+
+    let run2<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) (text:string) (state:'TState) =
+        if text = null then
+            nullArg (nameof(text))
+        let channel = Channel.CreateBounded<EventTree<'TState>>(1)
+        let accept tree =
+            use writeTask = task { 
+                do! channel.Writer.WriteAsync(tree); 
+                channel.Writer.Complete(); 
+            } 
+            writeTask.Wait()
+        let stream, mailbox = TextStream.Create(state, text, accept)            
+        use _ = mailbox
+        use parseTask = task {
+            match parser stream with
+            | Success (stream, _) as r -> 
+                stream.ReportEvent (ParseComplete(stream.CreateEventData("", "")))
+                let! tree = channel.Reader.ReadAsync()            
+                return r, tree
+            | Failure (stream, error) as r -> 
+                stream.ReportEvent (ParseComplete({ stream.CreateEventData("", "") with error = error })) 
+                let! tree = channel.Reader.ReadAsync()          
+                return r, tree
+        }
+        parseTask.Wait()
+        parseTask.Result

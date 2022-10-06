@@ -13,12 +13,15 @@ let accept tree =
 
     ()
 
-let json = "{ \"aaaa\": \"asdasdasdasdasdasdasdasdasdasdsa } "
-match run2 Json.parser json () accept with
-| Success(stream, r) ->
+//let json = "{ \"aaaa\": \"asdasdasdasdasdasdasdasdasdasdsa } "
+let json = System.IO.File.ReadAllText ("C:/Users/Matthew/Desktop/reddit.json")
+match run2 Json.parser json () with
+| Success(stream, r), tree ->
+    accept tree
     System.Console.ReadLine() 
     |> ignore
-| Failure(stream, er) ->
+| Failure(stream, er), tree ->
+    accept tree
     System.Console.ReadLine() 
     |> ignore
 
