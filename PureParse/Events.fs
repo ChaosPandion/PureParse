@@ -31,6 +31,7 @@ module Events = begin
             enterData: EventData<'TState>; 
             exitData: EventData<'TState>;
             //parent:EventTree<'TState>; 
+            token: string option
             children:EventTree<'TState> list }
         and ProductionDataBuilder<'TState> = { 
             mutable success: bool
@@ -42,7 +43,7 @@ module Events = begin
             
         type EventChannel<'TState> = Event<'TState> -> unit
 
-        let createEventTreeBuilder<'TState> (acceptResult:EventTree<'TState> -> unit) =
+        let createEventTreeBuilder<'TState> (text:string, acceptResult:EventTree<'TState> -> unit) =
             MailboxProcessor<Event<'TState>>.Start(
                 fun inbox ->
                     let rec run () =
@@ -89,12 +90,14 @@ module Events = begin
                                                 SucceededProduction { 
                                                     enterData = enter 
                                                     exitData = exit
+                                                    token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
                                                     children = d.children |> Seq.map build |> Seq.toList
                                                 } 
                                         | { success = false; enterData = Some enter; exitData = Some exit; children = _ } ->
                                                 FailedProduction { 
                                                     enterData = enter 
                                                     exitData = exit
+                                                    token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
                                                     children = d.children |> Seq.map build |> Seq.toList
                                                 } 
                                         | _ -> failwith ""
@@ -174,6 +177,11 @@ module Events = begin
                                     .failure {{
                                         color:red;
                                     }}
+                                    .token {{
+                                        color:black;
+                                        font-size:25px;
+                                        padding-left:10px;
+                                    }}
                                 </style>
 								<script type="text/javascript">
 									function expandOrCollapse(id) {{
@@ -199,6 +207,7 @@ module Events = begin
                                     <span onclick="expandOrCollapse('{id}')" class="expand {if success then "success" else "failure"}">&minus;</span>
                                     <span class="production-name {if success then "success" else "failure"}">{data.enterData.parserName}</span>
                                     <span class="">index={data.enterData.index}, column={data.enterData.column}, line={data.enterData.line}</span>
+                                    <span class="token">{if data.token.IsSome && data.token.Value.Length > 0 then data.token.Value else ""}</span>
                             """
                         let beginTag, data, success =
                             match eventTree with

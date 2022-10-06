@@ -170,7 +170,7 @@ module TextStream =
             static member Create<'TState> (state: 'TState, text:string, ?eventSetup:EventSetup, ?eventChannel:MailboxProcessor<Event<'TState>>) =
                 if text = null then
                     nullArg (nameof(text))
-                let memory = ReadOnlyMemory(text.ReplaceLineEndings("\n").EnumerateRunes() |> Seq.toArray)   
+                let memory = ReadOnlyMemory(text.EnumerateRunes() |> Seq.toArray)   
                 let events = 
                     let nameDefault, versionDefault, optionsDefault = "", "", EventOptions.FailureOnly
                     match eventSetup with
