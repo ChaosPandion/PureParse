@@ -20,8 +20,6 @@ module Events = begin
             | EnterProduction of enterProduction: EventData<'TState>
             | ExitProductionSuccess of exitProductionSuccess: EventData<'TState>
             | ExitProductionFailure of exitProductionFailure: EventData<'TState>
-            //| ParseSuccess of success: EventData<'TState>
-            //| ParseFailure of failure: EventData<'TState>
             | ParseComplete of complete:EventData<'TState>
 
         type EventTree<'TState> =
@@ -30,18 +28,14 @@ module Events = begin
         and ProductionData<'TState> = { 
             enterData: EventData<'TState>; 
             exitData: EventData<'TState>;
-            //parent:EventTree<'TState>; 
             token: string option
             children:EventTree<'TState> list }
         and ProductionDataBuilder<'TState> = { 
             mutable success: bool
             mutable enterData: Option<EventData<'TState>> 
             mutable exitData: Option<EventData<'TState>>
-            //mutable parent:Option<ProductionDataBuilder<'TState>>
             mutable children:ResizeArray<ProductionDataBuilder<'TState>> }
 
-            
-        type EventChannel<'TState> = Event<'TState> -> unit
 
         let createEventTreeBuilder<'TState> (text:string, acceptResult:EventTree<'TState> -> unit) =
             MailboxProcessor<Event<'TState>>.Start(
@@ -107,47 +101,16 @@ module Events = begin
                         }
                     run ())
 
-        type EventOptions =
-            | CompleteTree
-            | SuccessOnly
-            | FailureOnly
-            | NoEvents
-
-        type EventSetup = {
-                options: EventOptions option
-                name: string option
-                version: string option
-            }
-
-        type EventState<'TState> = {
-            options: EventOptions
-            name: string
-            version: string
-            timestamp: int64
-            events: List<Event<'TState>>
-        }
 
         let getTimeStamp () = System.DateTime.Now.Ticks
-
-        let createInitialEventState<'TState> name version options : EventState<'TState> = 
-
-            //if System.String.IsNullOrWhiteSpace name then
-            //    invalidArg (nameof(name)) "A name is required."
-            //if version = null then
-            //    nullArg (nameof(version))
-
-            { 
-                options = options; 
-                version = version;
-                name = name; 
-                timestamp = getTimeStamp ();
-                events = [] 
-            }
 
 
         
 
         module EventTree = begin
+
+            
+                type Accept<'TState> = EventTree<'TState> -> unit
 
                 let createHtml<'TState> (eventTree:EventTree<'TState>) : string =
                     let opening = $"""

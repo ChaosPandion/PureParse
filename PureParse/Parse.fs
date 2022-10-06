@@ -30,15 +30,14 @@ module Parse =
 
 
     let run (parser) (text) (state) =
-        let stream = TextStream.Create(state, text)
+        let stream = TextStream.Create(state, text, fun tree -> ())
         match parser stream with
         | Success (stream, result) -> result
         | Failure (stream, error) -> 
             printfn "%O" error
             raise error
     let run2 (parser) (text:string) (state) acceptEventTree =
-        let text = text.ReplaceLineEndings("\n")
-        let stream = TextStream.Create(state, text, eventChannel = createEventTreeBuilder (text, acceptEventTree))
+        let stream = TextStream.Create(state, text, acceptEventTree)
         match parser stream with
         | Success (stream, result) as r -> 
             stream.ReportEvent (ParseComplete(stream.CreateEventData("", "")))

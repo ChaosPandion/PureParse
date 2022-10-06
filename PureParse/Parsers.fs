@@ -14,8 +14,8 @@ module Parsers =
         match parser stream with
         | Success (stream, value) -> 
             transform value stream
-        | Failure (fStream, message) -> 
-            Failure (stream.WithEvents(fStream.Events), message)
+        | Failure (_, message) -> 
+            Failure (stream, message)
             
     /// The 'bind' function of the monad
     let (>>=) p f s = bind p f s
@@ -143,7 +143,7 @@ module Parsers =
                 | p::ps ->
                     match p stream with
                     | Success (_, _) as result -> result
-                    | Failure (s, _) -> loop (stream.WithEvents(s.Events)) ps
+                    | Failure (_, _) -> loop stream ps
             loop stream parsers
 
             
@@ -188,21 +188,15 @@ module Parsers =
 
     let parseProduction<'TState, 'TResult> (name: string) (parser: Parser<'TState, 'TResult>) : Parser<'TState, 'TResult> = 
         fun (stream) ->
-            match stream.Events.options with
-            | NoEvents ->
-                parser stream
-            | _ ->
-                let ev = EnterProduction(stream.CreateEventData(name, "")) 
-                let stream = stream.WithEvent ev   
-                stream.ReportEvent ev         
-                match parser stream with
-                | Success (stream, v) ->                
-                    let ev = ExitProductionSuccess(stream.CreateEventData(name, ""))  
-                    let stream = stream.WithEvent ev
-                    stream.ReportEvent ev
-                    Success(stream, v)
-                | Failure (stream, error) ->  
-                    let ev = ExitProductionFailure({ stream.CreateEventData(name, "") with error = error })  
-                    let stream = stream.WithEvent ev
-                    stream.ReportEvent ev
-                    Failure(stream, error)
+            let ev = EnterProduction(stream.CreateEventData(name, "")) 
+            stream.ReportEvent ev         
+            match parser stream with
+            | Success (stream, v) ->                
+                let ev = ExitProductionSuccess(stream.CreateEventData(name, ""))  
+                stream.ReportEvent ev
+                Success(stream, v)
+            | Failure (stream, error) ->  
+                let ev = ExitProductionFailure({ stream.CreateEventData(name, "") with error = error })  
+                stream.ReportEvent ev
+                Failure(stream, error)
+                

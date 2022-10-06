@@ -83,8 +83,8 @@ module ListParsers =
             let firstStream = stream
             let rec parse stream elements =
                 match parser stream with
-                | Failure (fStream, _) -> 
-                    struct (stream.WithEvents(fStream.Events), [], false)
+                | Failure (_, _) -> 
+                    struct (stream, [], false)
                 | Success (stream, element) ->
                     match separator stream with
                     | Success (stream, _) ->
@@ -94,13 +94,13 @@ module ListParsers =
                         else
                             struct(stream, element::elements, true)
 
-                    | Failure (fStream, _) ->
-                        struct(stream.WithEvents(fStream.Events), element::elements, true)
+                    | Failure (_, _) ->
+                        struct(stream, element::elements, true)
             let struct(stream, elements, success) = parse stream []
             if not success && (minElements = 0 && elements.Length = 0) then
                 Success (stream, elements)
             elif not success || elements.Length < minElements then 
                 let m = sprintf "Failed to create a list of at least %i elements." minElements
-                Failure (firstStream.WithEvents(stream.Events), stream.CreateFailure m ParseError)
+                Failure (firstStream, stream.CreateFailure m ParseError)
             else
                 Success (stream, elements)

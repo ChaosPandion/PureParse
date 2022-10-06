@@ -133,9 +133,9 @@ module Json =
     let private pString:Parser<unit,string> = 
         parseProduction "String" 
             <| parse {
-            do! skipChar '\"'
-            let! body = pStringBody
-            do! skipChar '\"'
+            do! parseProduction "Begin String" (skipChar '\"')
+            let! body = parseProduction "String Body" pStringBody
+            do! parseProduction "End String" (skipChar '\"')
             return body
         }
 

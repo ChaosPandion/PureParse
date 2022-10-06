@@ -13,7 +13,7 @@ let accept tree =
 
     ()
 
-let json = "[ 123, true, false, { \"a\": 123 }, [ 1, 2, null, true, 1, 2, \"123\" ] ]"
+let json = "{ \"aaaa\": \"asdasdasdasdasdasdasdasdasdasdsa } "
 match run2 Json.parser json () accept with
 | Success(stream, r) ->
     System.Console.ReadLine() 
