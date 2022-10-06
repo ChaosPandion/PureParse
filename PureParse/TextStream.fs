@@ -29,7 +29,7 @@ module TextStream =
         type TextStream<'TState> (
                 state: 'TState, 
                 memory: ReadOnlyMemory<Rune>, 
-                eventChannel: MailboxProcessor<Event<'TState>> option,
+                eventChannel: MailboxProcessor<Event<'TState>>,
                 index: int, 
                 line: int, 
                 column: int) = 
@@ -50,13 +50,12 @@ module TextStream =
                     nullArg (nameof(text))
                 let text = text.ReplaceLineEndings("\n")
                 let memory = ReadOnlyMemory(text.EnumerateRunes() |> Seq.toArray)
-                TextStream<'TState>(state, memory, Some (Events.createEventTreeBuilder(text, accept)), 0, 1, 1)
+                let mailbox = Events.createEventTreeBuilder(text, accept)
+                TextStream<'TState>(state, memory, mailbox, 0, 1, 1), mailbox
 
                 
             member _.ReportEvent (event:Event<_>) =
-                match eventChannel with
-                | Some ec -> ec.Post event
-                | None -> ()
+                eventChannel.Post event
                  
             member _.CreateEventData (parserName, message) = {
                         parserName = parserName

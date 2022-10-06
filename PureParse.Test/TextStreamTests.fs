@@ -13,7 +13,7 @@ module TextStreamTests =
 
     [<Fact>]
     let ``Initial Setup is correct.`` () =
-        let ts = TextStream<state>.Create({ name = "test" }, "abc", fun tree -> ())
+        let ts, m = TextStream<state>.Create({ name = "test" }, "abc", fun tree -> ())
         Assert.Equal("test", ts.State.name)
         Assert.Equal(0, ts.Index)
         Assert.Equal(1, ts.Line)
@@ -24,7 +24,7 @@ module TextStreamTests =
 
     [<Fact>]
     let ``Peek Test`` () =
-        let ts = TextStream<state>.Create({ name = "test" }, "abc", fun tree -> ())
+        let ts, m = TextStream<state>.Create({ name = "test" }, "abc", fun tree -> ())
         let test () = 
             Assert.Equal("test", ts.State.name)
             Assert.Equal(0, ts.Index)
@@ -42,7 +42,7 @@ module TextStreamTests =
 
     [<Fact>]
     let ``UTF-32 Test`` () =
-        let ts = TextStream<state>.Create({ name = "test" }, "⨊🌉🗽", fun tree -> ())
+        let ts, m = TextStream<state>.Create({ name = "test" }, "⨊🌉🗽", fun tree -> ())
         match ts.Next(1) with
         | ValueSome (RuneString "⨊", ts1) ->
             match ts1.Next(1) with
@@ -55,7 +55,7 @@ module TextStreamTests =
 
     [<Fact>]
     let ``Basic Test of Rune TextStream With No Custom State`` () =
-        let ts = TextStream<unit>.Create((), "abc", fun tree -> ())
+        let ts, m = TextStream<unit>.Create((), "abc", fun tree -> ())
         match ts.Next() with
         | ValueSome(Rune 'a', ts1) when ts1.Index = 1 ->
             match ts1.Next() with
@@ -68,7 +68,7 @@ module TextStreamTests =
 
     [<Fact>]
     let ``Test Rune Sequence of TextStream`` () =
-        let ts = TextStream<unit>.Create((), "abcdefhij", fun tree -> ())
+        let ts, m = TextStream<unit>.Create((), "abcdefhij", fun tree -> ())
         match ts.Next(6) with
         | ValueSome(Runes "abcdef", ts1) when ts1.Index = 6 ->
             match ts1.Next(3) with
@@ -78,7 +78,7 @@ module TextStreamTests =
 
     [<Fact>]
     let ``Basic Line and Column Test`` () =
-        let ts = TextStream<unit>.Create((), "12345\n123", fun tree -> ())
+        let ts, ms = TextStream<unit>.Create((), "12345\n123", fun tree -> ())
         match ts.Next(5) with 
         | ValueSome(Runes "12345", ts1) ->
             Assert.Equal(5, ts1.Index)
@@ -106,7 +106,7 @@ module TextStreamTests =
 
     [<Fact>]
     let ``Basic Line Replacement Test`` () =
-        let ts = TextStream<unit>.Create((), "12345\r\n123", fun tree -> ())
+        let ts, m = TextStream<unit>.Create((), "12345\r\n123", fun tree -> ())
         match ts.Next(5) with 
         | ValueSome(Runes "12345", ts1) ->
             Assert.Equal(1, ts1.Line)
