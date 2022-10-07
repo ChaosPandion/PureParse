@@ -1,8 +1,10 @@
 ﻿namespace PureParse
 
+open System.Threading.Channels
+open System.Threading.Tasks
 
 [<AutoOpen>]
-module Events = begin
+module Events =
 
         type EventData<'TState> = {
             parserName: string
@@ -36,82 +38,75 @@ module Events = begin
             mutable exitData: Option<EventData<'TState>>
             mutable children:ResizeArray<ProductionDataBuilder<'TState>> }
 
+        let createEventTreeBuilder<'TState> (text:string) (eventChannel:Channel<Event<'TState>>) =
+            task {
+                let stack = System.Collections.Generic.Stack<ProductionDataBuilder<'TState>>()
+                let mutable current: option<ProductionDataBuilder<'TState>> = None
+                let mutable tree: option<EventTree<'TState>> = None
+                let mutable complete = false
+                while not complete do
+                    let! r = eventChannel.Reader.ReadAsync ()
+                    match r with
+                    | EnterProduction eventData ->
+                        let production = { 
+                            success = false
+                            enterData = Some eventData
+                            exitData = None
+                            children = ResizeArray() }
+                        match current with
+                        | None -> ()
+                        | Some c ->
+                            c.children.Add production
+                            stack.Push c
+                        current <- Some production
+                    | ExitProductionSuccess eventData ->
+                        match current with
+                        | None -> failwith "Invalid event sequence"
+                        | Some c ->
+                            c.success <- true
+                            c.exitData <- Some eventData
+                            if stack.Count > 0 then
+                                current <- Some (stack.Pop ())
+                    | ExitProductionFailure eventData ->
+                        match current with
+                        | None -> failwith "Invalid event sequence"
+                        | Some c ->
+                            c.success <- false
+                            c.exitData <- Some eventData
+                            if stack.Count > 0 then
+                                current <- Some (stack.Pop ())
+                    | ParseComplete eventData ->
+                        if stack.Count <> 0 then
+                            failwith "Invalid event sequence"
 
-        let createEventTreeBuilder<'TState> (text:string, acceptResult:EventTree<'TState> -> unit) =
-            MailboxProcessor<Event<'TState>>.Start(
-                fun inbox ->
-                    let rec run () =
-                        async {
-                            let stack = System.Collections.Generic.Stack<ProductionDataBuilder<'TState>>()
-                            let mutable current: option<ProductionDataBuilder<'TState>> = None
-                            while true do
-                                match! inbox.Receive () with
-                                | EnterProduction eventData ->
-                                    let production = { 
-                                        success = false
-                                        enterData = Some eventData
-                                        exitData = None
-                                        children = ResizeArray() }
-                                    match current with
-                                    | None -> ()
-                                    | Some c ->
-                                        c.children.Add production
-                                        stack.Push c
-                                    current <- Some production
-                                | ExitProductionSuccess eventData ->
-                                    match current with
-                                    | None -> failwith "Invalid event sequence"
-                                    | Some c ->
-                                        c.success <- true
-                                        c.exitData <- Some eventData
-                                        if stack.Count > 0 then
-                                            current <- Some (stack.Pop ())
-                                | ExitProductionFailure eventData ->
-                                    match current with
-                                    | None -> failwith "Invalid event sequence"
-                                    | Some c ->
-                                        c.success <- false
-                                        c.exitData <- Some eventData
-                                        if stack.Count > 0 then
-                                            current <- Some (stack.Pop ())
-                                | ParseComplete eventData ->
-                                    if stack.Count <> 0 then
-                                        failwith "Invalid event sequence"
-
-                                    let rec build (d:ProductionDataBuilder<'TState>) =
-                                        match d with
-                                        | { success = true; enterData = Some enter; exitData = Some exit; children = _ } ->
-                                                SucceededProduction { 
-                                                    enterData = enter 
-                                                    exitData = exit
-                                                    token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
-                                                    children = d.children |> Seq.map build |> Seq.toList
-                                                } 
-                                        | { success = false; enterData = Some enter; exitData = Some exit; children = _ } ->
-                                                FailedProduction { 
-                                                    enterData = enter 
-                                                    exitData = exit
-                                                    token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
-                                                    children = d.children |> Seq.map build |> Seq.toList
-                                                } 
-                                        | _ -> failwith ""
-                                    let tree = build current.Value
-                                    acceptResult tree
-                                    return ()
-                        }
-                    run ())
-
-
-        let getTimeStamp () = System.DateTime.Now.Ticks
+                        let rec build (d:ProductionDataBuilder<'TState>) =
+                            match d with
+                            | { success = true; enterData = Some enter; exitData = Some exit; children = _ } ->
+                                    SucceededProduction { 
+                                        enterData = enter 
+                                        exitData = exit
+                                        token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
+                                        children = d.children |> Seq.map build |> Seq.toList
+                                    } 
+                            | { success = false; enterData = Some enter; exitData = Some exit; children = _ } ->
+                                    FailedProduction { 
+                                        enterData = enter 
+                                        exitData = exit
+                                        token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
+                                        children = d.children |> Seq.map build |> Seq.toList
+                                    } 
+                            | _ -> failwith ""
+                        tree <- Some (build current.Value)
+                        complete <- true
+                
+                return tree.Value
+            }
 
 
-        
+        let getTimeStamp () = System.DateTime.Now.Ticks        
 
-        module EventTree = begin
-
+        module EventTree = 
             
-                type Accept<'TState> = EventTree<'TState> -> unit
-
                 let createHtml<'TState> (eventTree:EventTree<'TState>) : string =
                     let opening = $"""
                         <html>
@@ -183,9 +178,3 @@ module Events = begin
                         beginTag + body + "</div>"
 
                     opening + (run "root" eventTree) + "</body></html>"
-
-
-
-            end
-
-    end

@@ -1,6 +1,10 @@
 ﻿namespace PureParse
+
+open System.Threading.Tasks
+
 #nowarn "9"
 open System
+open System.Threading.Channels
 open System.Text
 open System.Buffers
 open FSharp.NativeInterop
@@ -29,7 +33,8 @@ module TextStream =
         type TextStream<'TState> (
                 state: 'TState, 
                 memory: ReadOnlyMemory<Rune>, 
-                eventChannel: MailboxProcessor<Event<'TState>>,
+                eventChannel: Channel<Event<'TState>>,
+                eventTreeTask: Task<EventTree<'TState>>,
                 index: int, 
                 line: int, 
                 column: int) = 
@@ -45,19 +50,24 @@ module TextStream =
                 | Between (Bounded lower, Unbounded) ->  max lower remaining
                 | Between (Unbounded, Unbounded) | Exact Unbounded | Remaining ->  remaining
 
-            static member Create<'TState> (state: 'TState, text:string, accept:EventTree.Accept<'TState>) =
+            static member Create<'TState> (state: 'TState, text:string) =
                 if text = null then
                     nullArg (nameof(text))
                 let text = text.ReplaceLineEndings("\n")
                 let memory = ReadOnlyMemory(text.EnumerateRunes() |> Seq.toArray)
-                let mailbox = Events.createEventTreeBuilder(text, accept)
-                TextStream<'TState>(state, memory, mailbox, 0, 1, 1), mailbox
+                let eventChannel = Channel.CreateUnbounded<Event<'TState>>()
+                let eventTreeTask = Events.createEventTreeBuilder text eventChannel
+                TextStream<'TState>(state, memory, eventChannel, eventTreeTask, 0, 1, 1)
 
+            /// After the parse operation is complete, invoke this method to wait for the event tree.
+            member _.GetEventTree () =
+                eventTreeTask.Wait()
+                eventTreeTask.Result
                 
-            member _.ReportEvent (event:Event<_>) =
-                eventChannel.Post event
+            member internal _.ReportEvent (event:Event<_>) =
+                eventChannel.Writer.WriteAsync(event) |> ignore
                  
-            member _.CreateEventData (parserName, message) = {
+            member internal _.CreateEventData (parserName, message) = {
                         parserName = parserName
                         message = message
                         index = index
@@ -102,7 +112,7 @@ module TextStream =
                 if index < memory.Length then 
                     let r = memory.Slice(index, 1).Span[0]
                     let l, c = if r = newline then line + 1, 1 else line, column + 1
-                    ValueSome (r, TextStream<'TState>(state, memory, eventChannel, index + 1, l, c))
+                    ValueSome (r, TextStream<'TState>(state, memory, eventChannel, eventTreeTask, index + 1, l, c))
                 else 
                     ValueNone
 
@@ -122,7 +132,7 @@ module TextStream =
                         if r = newline then
                             c <- 1
                             l <- l + 1
-                    ValueSome (r, TextStream<'TState>(state, memory, eventChannel, index + count, l, c))
+                    ValueSome (r, TextStream<'TState>(state, memory, eventChannel, eventTreeTask, index + count, l, c))
                     
             member _.CreateFailure<'e, 'u when 'e :> exn> (data:'u) (f:'u * int * int * int -> 'e) =
                 f (data, index, line, column)
