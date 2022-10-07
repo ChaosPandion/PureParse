@@ -106,75 +106,88 @@ module Events =
         let getTimeStamp () = System.DateTime.Now.Ticks        
 
         module EventTree = 
-            
-                let createHtml<'TState> (eventTree:EventTree<'TState>) : string =
-                    let opening = $"""
-                        <html>
-                            <head>
-                                <style type="text/css">
-                                    .production {{
-                                        padding: 5px;
-                                        margin: 2px;
-                                        margin-left: 20px;
-                                        /*border:2px dashed black;*/
-                                    }}
-                                    .production-name {{
-                                        color:black;
-                                        font-weight:bold;
-                                        display:inline;
-                                        margin-left:5px;
-                                        font-size:20px;
-                                    }}
-                                    .expand {{
-										cursor:pointer;
-                                        font-size:20px;
-                                    }}
-                                    .success {{
-                                        color:green;
-                                    }}
-                                    .failure {{
-                                        color:red;
-                                    }}
-                                    .token {{
-                                        color:black;
-                                        font-size:25px;
-                                        padding-left:10px;
-                                    }}
-                                </style>
-								<script type="text/javascript">
-									function expandOrCollapse(id) {{
-										let element = document.getElementById(id);
-										let expanded = element.getAttribute("expanded")
-										let isExpanded = expanded == "true";
-										let display = isExpanded ? "block" : "none"
-										let text = isExpanded ? "&minus;" : "&plus;";
-										
-										element.setAttribute("expanded", isExpanded ? "false" : "true");
-										document.querySelectorAll("#" + id + " > div").forEach(a => a.style.display = display);
-										document.querySelectorAll("#" + id + " > span.expand").forEach(a => a.innerHTML = text);
-									}}
-								</script>
-                            </head>
-                            <body>
-                        
-                    """
-                    let rec run id (eventTree:EventTree<'TState>) =
-                        let getBeginTag (data:ProductionData<'TState>) success = 
-                            $"""
-                                <div id="{id}" expanded="false" class="{id} production {if success then "success" else "failure"}">
-                                    <span onclick="expandOrCollapse('{id}')" class="expand {if success then "success" else "failure"}">&minus;</span>
-                                    <span class="production-name {if success then "success" else "failure"}">{data.enterData.parserName}</span>
-                                    <span class="">index={data.enterData.index}, column={data.enterData.column}, line={data.enterData.line}</span>
-                                    <span class="token">{if data.token.IsSome && data.token.Value.Length > 0 then data.token.Value else ""}</span>
-                            """
-                        let beginTag, data, success =
-                            match eventTree with
-                            | SucceededProduction data -> getBeginTag data true, data, true
-                            | FailedProduction data -> getBeginTag data false, data, false
-                        let children = 
-                            data.children 
-                            |> List.mapi (fun index child -> run (id + "-c" + string index) child)
-                        let body = System.String.Join ("", children)
-                        beginTag + body + "</div>"
 
-                    opening + (run "root" eventTree) + "</body></html>"
+            let getDeepestFailure<'TState> (tree:EventTree<'TState>) : EventTree<'TState> option =
+                let rec find (tree:EventTree<'TState>) (height:int) : EventTree<'TState> option * int = 
+                    match tree with
+                    | SucceededProduction _ -> None, height 
+                    | FailedProduction d when d.children.IsEmpty -> Some tree, height
+                    | FailedProduction d ->
+                        d.children 
+                        |> List.map (fun tree -> find tree (height + 1))
+                        |> List.maxBy (fun (_, height) -> height)
+                let result, _ = find tree 0
+                result
+
+            
+            let createHtml<'TState> (eventTree:EventTree<'TState>) : string =
+                let opening = $"""
+                    <html>
+                        <head>
+                            <style type="text/css">
+                                .production {{
+                                    padding: 5px;
+                                    margin: 2px;
+                                    margin-left: 20px;
+                                    /*border:2px dashed black;*/
+                                }}
+                                .production-name {{
+                                    color:black;
+                                    font-weight:bold;
+                                    display:inline;
+                                    margin-left:5px;
+                                    font-size:20px;
+                                }}
+                                .expand {{
+									cursor:pointer;
+                                    font-size:20px;
+                                }}
+                                .success {{
+                                    color:green;
+                                }}
+                                .failure {{
+                                    color:red;
+                                }}
+                                .token {{
+                                    color:black;
+                                    font-size:25px;
+                                    padding-left:10px;
+                                }}
+                            </style>
+							<script type="text/javascript">
+								function expandOrCollapse(id) {{
+									let element = document.getElementById(id);
+									let expanded = element.getAttribute("expanded")
+									let isExpanded = expanded == "true";
+									let display = isExpanded ? "block" : "none"
+									let text = isExpanded ? "&minus;" : "&plus;";
+										
+									element.setAttribute("expanded", isExpanded ? "false" : "true");
+									document.querySelectorAll("#" + id + " > div").forEach(a => a.style.display = display);
+									document.querySelectorAll("#" + id + " > span.expand").forEach(a => a.innerHTML = text);
+								}}
+							</script>
+                        </head>
+                        <body>
+                        
+                """
+                let rec run id (eventTree:EventTree<'TState>) =
+                    let getBeginTag (data:ProductionData<'TState>) success = 
+                        $"""
+                            <div id="{id}" expanded="false" class="{id} production {if success then "success" else "failure"}">
+                                <span onclick="expandOrCollapse('{id}')" class="expand {if success then "success" else "failure"}">&minus;</span>
+                                <span class="production-name {if success then "success" else "failure"}">{data.enterData.parserName}</span>
+                                <span class="">index={data.enterData.index}, column={data.enterData.column}, line={data.enterData.line}</span>
+                                <span class="token">{System.Net.WebUtility.HtmlEncode(if data.token.IsSome && data.token.Value.Length > 0 then data.token.Value else "")}</span>
+                        """
+                    let beginTag, data, success =
+                        match eventTree with
+                        | SucceededProduction data -> getBeginTag data true, data, true
+                        | FailedProduction data -> getBeginTag data false, data, false
+                    let children = 
+                        data.children 
+                        |> List.mapi (fun index child -> run (id + "-c" + string index) child)
+                    let body = System.String.Join ("", children)
+                    beginTag + body + "</div>"
+
+                opening + (run "root" eventTree) + "</body></html>"

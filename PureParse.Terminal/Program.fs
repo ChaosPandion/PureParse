@@ -13,15 +13,19 @@ let accept tree =
 
     ()
 
-//let json = "{ \"aaaa\": \"asdasdasdasdasdasdasdasdasdasdsa } "
-let json = System.IO.File.ReadAllText ("C:/Users/Matthew/Desktop/reddit.json")
+let json = " [ 1, 2, 3, 4, [ true, false, null, [ 1, 2, 3, 4, 5, 6,   ] ] "
+//let json = System.IO.File.ReadAllText ("C:/Users/Matthew/Desktop/turkish.json")
 match run2 Json.parser json () with
 | Success(stream, r), tree ->
     accept tree
+    printfn "Success"
     System.Console.ReadLine() 
     |> ignore
 | Failure(stream, er), tree ->
     accept tree
+    let d = EventTree.getDeepestFailure tree
+    System.Console.WriteLine (d)
+    printfn "Failure"
     System.Console.ReadLine() 
     |> ignore
 
