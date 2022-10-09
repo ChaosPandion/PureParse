@@ -365,4 +365,7 @@ module PLisp =
 
     let private pValue = chooseSync [  pNumber; pBool <|> pName; pString; pList; ] 
 
-    let parseText text = run pList text ()
+    let parseText text = 
+        match tryRun pList text () with
+        | RunSuccess(_, value, _) -> value
+        | _ -> failwith("Failed to parse.")

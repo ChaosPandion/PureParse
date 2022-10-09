@@ -38,6 +38,8 @@ module TextStream =
                 index: int, 
                 line: int, 
                 column: int) = 
+            [<Literal>]
+            let errorDefault = ""
 
             static let newline = new Rune('\n')
 
@@ -64,20 +66,25 @@ module TextStream =
                 eventTreeTask.Wait()
                 eventTreeTask.Result
                 
+
             member internal _.ReportEvent (event:Event<_>) =
-                eventChannel.Writer.WriteAsync(event) |> ignore
-                 
-            member internal _.CreateEventData (parserName, message) = {
-                        parserName = parserName
-                        message = message
-                        index = index
-                        line = line
-                        column = column
-                        timestamp = getTimeStamp ()
-                        state = state
-                        error = exn()
-                    }
- 
+                eventChannel.Writer.WriteAsync(event) |> ignore                     
+            member internal this.CreateErrorEventData (parserName, ?message) =
+                let message = Option.defaultValue errorDefault message
+                this.CreateEventData(parserName, message, ParseError(message, index, line, column))
+            member internal _.CreateEventData (parserName, ?message, ?error:exn) =
+                if parserName = null then nullArg (nameof(parserName))
+                {
+                    parserName = parserName
+                    message = Option.defaultValue errorDefault message
+                    index = index
+                    line = line
+                    column = column
+                    timestamp = getTimeStamp ()
+                    state = state
+                    error = error
+                }
+
             member _.State = state
 
             member _.Index = index

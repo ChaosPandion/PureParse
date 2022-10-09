@@ -61,17 +61,23 @@ module Json =
 
     let private sign:Parser<unit,char option> = parse { return! opt (parseChar '+' <|> parseChar '-') }
  
-    let private parseIntegerPart =
+    let private parseOptionalMinus:Parser<unit, float> = 
         parse {
-            let! sign = opt (parseChar '-')
+            match! opt (parseChar '-') with
+            | Some '-' -> return -1.0
+            | _ -> return 1.0
+        }
+
+    let private parseIntegerPart:Parser<unit, int32 * float> =
+        parse {
+            let! sign  = parseOptionalMinus
             let! digits = parseInt32
-            let signModifier = parseSign sign
-            return digits, signModifier
+            return digits, sign
         }
 
     let private exponentChar = RuneCharSeq "eE"
 
-    let private parseExponentPart =
+    let private parseExponentPart:Parser<unit, float> =
         parse {
             let! _ = parseAnyOf exponentChar
             let! s = sign
@@ -141,17 +147,20 @@ module Json =
     let private stringChars = parseList (nonEscapeChar <|> escapeChar) (Many 0)
 
     let private pStringBody:Parser<unit,string> = 
-        parse {
-            let! chars = stringChars
-            return System.String.Join("", chars)
-        }      
+       parseProduction "String Body"
+            <| parse {
+                let! chars = stringChars
+                return System.String.Join("", chars)
+            }      
         
+    let private pBeginString:Parser<unit,unit> = parseProduction "Begin String" (skipChar '\"')
+    let private pEndString:Parser<unit,unit> = parseProduction "End String" (skipChar '\"')
     let private pString:Parser<unit,string> = 
         parseProduction "String" 
             <| parse {
-            do! parseProduction "Begin String" (skipChar '\"')
-            let! body = parseProduction "String Body" pStringBody
-            do! parseProduction "End String" (skipChar '\"')
+            do! pBeginString
+            let! body = pStringBody
+            do! pEndString
             return body
         }
 
@@ -268,5 +277,8 @@ module Json =
                 return v
             }
 
-    let parseText text = run pValue text ()
+    let parseText text = 
+        match tryRun pValue text () with
+        | RunSuccess(_, value, _) -> value
+        | _ -> failwith("Failed to parse.")
     let parser = pValue

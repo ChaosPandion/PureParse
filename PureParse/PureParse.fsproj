@@ -12,8 +12,8 @@
   <ItemGroup>
     <Compile Include="CharSets.fs" />
     <Compile Include="Range.fs" />
-    <Compile Include="Errors.fs" />
     <Compile Include="Events.fs" />
+    <Compile Include="Errors.fs" />
     <Compile Include="ParserData.fs" />
     <Compile Include="Runes.fs" />
     <Compile Include="TextStream.fs" />

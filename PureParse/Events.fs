@@ -14,7 +14,7 @@ module Events =
             column: int
             timestamp: int64
             state: 'TState
-            error: exn 
+            error: exn option
         }
 
         [<Struct>]
@@ -23,6 +23,7 @@ module Events =
             | ExitProductionSuccess of exitProductionSuccess: EventData<'TState>
             | ExitProductionFailure of exitProductionFailure: EventData<'TState>
             | ParseComplete of complete:EventData<'TState>
+            | ParseFailure of parseFailure:EventData<'TState>
 
         type EventTree<'TState> =
             | SucceededProduction of ProductionData<'TState> 
@@ -31,11 +32,13 @@ module Events =
             enterData: EventData<'TState>; 
             exitData: EventData<'TState>;
             token: string option
+            failures:List<EventData<'TState>> 
             children:EventTree<'TState> list }
         and ProductionDataBuilder<'TState> = { 
             mutable success: bool
             mutable enterData: Option<EventData<'TState>> 
             mutable exitData: Option<EventData<'TState>>
+            mutable failures:ResizeArray<EventData<'TState>> 
             mutable children:ResizeArray<ProductionDataBuilder<'TState>> }
 
         let createEventTreeBuilder<'TState> (text:string) (eventChannel:Channel<Event<'TState>>) =
@@ -52,6 +55,7 @@ module Events =
                             success = false
                             enterData = Some eventData
                             exitData = None
+                            failures = ResizeArray()
                             children = ResizeArray() }
                         match current with
                         | None -> ()
@@ -75,6 +79,11 @@ module Events =
                             c.exitData <- Some eventData
                             if stack.Count > 0 then
                                 current <- Some (stack.Pop ())
+                    | ParseFailure eventData -> 
+                        match current with
+                        | None -> failwith "Invalid event sequence"
+                        | Some c ->
+                            c.failures.Add eventData
                     | ParseComplete eventData ->
                         if stack.Count <> 0 then
                             failwith "Invalid event sequence"
@@ -86,6 +95,7 @@ module Events =
                                         enterData = enter 
                                         exitData = exit
                                         token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
+                                        failures = d.failures |> Seq.toList
                                         children = d.children |> Seq.map build |> Seq.toList
                                     } 
                             | { success = false; enterData = Some enter; exitData = Some exit; children = _ } ->
@@ -93,6 +103,7 @@ module Events =
                                         enterData = enter 
                                         exitData = exit
                                         token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
+                                        failures = d.failures |> Seq.toList
                                         children = d.children |> Seq.map build |> Seq.toList
                                     } 
                             | _ -> failwith ""
@@ -153,6 +164,9 @@ module Events =
                                     font-size:25px;
                                     padding-left:10px;
                                 }}
+                                .failures {{
+                                    margin-;
+                                }}
                             </style>
 							<script type="text/javascript">
 								function expandOrCollapse(id) {{
@@ -163,7 +177,7 @@ module Events =
 									let text = isExpanded ? "&minus;" : "&plus;";
 										
 									element.setAttribute("expanded", isExpanded ? "false" : "true");
-									document.querySelectorAll("#" + id + " > div").forEach(a => a.style.display = display);
+									document.querySelectorAll("#" + id + " > .collapse").forEach(a => a.style.display = display);
 									document.querySelectorAll("#" + id + " > span.expand").forEach(a => a.innerHTML = text);
 								}}
 							</script>
@@ -173,10 +187,11 @@ module Events =
                 """
                 let rec run id (eventTree:EventTree<'TState>) =
                     let getBeginTag (data:ProductionData<'TState>) success = 
+                        let resultClass = if success then "success" else "failure"
                         $"""
-                            <div id="{id}" expanded="false" class="{id} production {if success then "success" else "failure"}">
-                                <span onclick="expandOrCollapse('{id}')" class="expand {if success then "success" else "failure"}">&minus;</span>
-                                <span class="production-name {if success then "success" else "failure"}">{data.enterData.parserName}</span>
+                            <div id="{id}" expanded="false" class="collapse {id} production {resultClass}">
+                                <span onclick="expandOrCollapse('{id}')" class="expand {resultClass}">&minus;</span>
+                                <span class="production-name {resultClass}">{data.enterData.parserName}</span>
                                 <span class="">index={data.enterData.index}, column={data.enterData.column}, line={data.enterData.line}</span>
                                 <span class="token">{System.Net.WebUtility.HtmlEncode(if data.token.IsSome && data.token.Value.Length > 0 then data.token.Value else "")}</span>
                         """
@@ -184,10 +199,15 @@ module Events =
                         match eventTree with
                         | SucceededProduction data -> getBeginTag data true, data, true
                         | FailedProduction data -> getBeginTag data false, data, false
+
+                    let failures = 
+                        if data.failures.IsEmpty then "" else
+                            "<ul class=\"collapse failures failure\">" + (data.failures |> List.map(fun f -> "<li>" + f.error.Value.ToString() + "</li>") |> List.reduce (+)) + "</ul>"
+
                     let children = 
                         data.children 
                         |> List.mapi (fun index child -> run (id + "-c" + string index) child)
                     let body = System.String.Join ("", children)
-                    beginTag + body + "</div>"
+                    beginTag + failures + body + "</div>"
 
                 opening + (run "root" eventTree) + "</body></html>"

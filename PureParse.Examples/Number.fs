@@ -236,7 +236,11 @@ module Number =
         }
 
     let parseInt64 text = 
-        run parseInteger text ()
+        match tryRun parseInteger text () with
+        | RunSuccess(_, value, _) -> value
+        | _ -> failwith("Failed to parse.")
 
     let parseDouble text = 
-        run parseFloat text ()
+        match tryRun parseFloat text () with
+        | RunSuccess(_, value, _) -> value
+        | _ -> failwith("Failed to parse.")

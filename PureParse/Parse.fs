@@ -29,26 +29,24 @@ module Parse =
 
     let parse = ParseBuilder()
 
-
-    let run (parser) (text) (state) =
-        let stream = TextStream.Create(state, text)
-        match parser stream with
-        | Success (stream, result) -> result
-        | Failure (stream, error) -> 
-            printfn "%O" error
-            raise error
-
-
-    let run2<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) (text:string) (state:'TState) : Result<'TState, 'TResult> * EventTree<'TState> =
+    let tryRun<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) (text:string) (state:'TState) : RunResult<'TState, 'TResult> =
         if text = null then
             nullArg (nameof(text))
         let stream = TextStream.Create(state, text)  
+        stream.ReportEvent (EnterProduction(stream.CreateEventData("Root", "")))
         match parser stream with
-        | Success (stream, _) as result -> 
-            stream.ReportEvent (ParseComplete(stream.CreateEventData("", "")))
+        | Success (stream, data) -> 
+            stream.ReportEvent (ExitProductionSuccess(stream.CreateEventData("Root", "")))
+            stream.ReportEvent (ParseComplete(stream.CreateEventData("", "Complete")))
             let tree = stream.GetEventTree()        
-            result, tree
-        | Failure (stream, error) as result -> 
-            stream.ReportEvent (ParseComplete({ stream.CreateEventData("", "") with error = error })) 
-            let tree = stream.GetEventTree()          
-            result, tree
+            RunSuccess (stream.State, data, tree)
+        | Failure (stream) -> 
+            stream.ReportEvent (ExitProductionFailure(stream.CreateEventData("Root", "")))
+            stream.ReportEvent (ParseComplete(stream.CreateEventData("", "Complete"))) 
+            let tree = stream.GetEventTree()     
+            RunFailure (stream.State, PureParseException(tree), tree)
+
+    let run<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) (text:string) (state:'TState) : 'TResult =
+        match tryRun parser text state with
+        | RunSuccess (_, data, _) -> data
+        | RunFailure (_, error, _) -> raise error
