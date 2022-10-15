@@ -107,7 +107,7 @@ module Json =
             let! h1, h2, h3, h4 = sequence4 hexDigit hexDigit hexDigit hexDigit
             let c = char (((digitToInt h1) * 4096) + ((digitToInt h2) * 256) + ((digitToInt h3) * 16) + (digitToInt h4))
             return c
-        } |> onFailure "A unicode escape sequence requires 4 hex digits following the \\u")
+        } <?> "A unicode escape sequence requires 4 hex digits following the \\u")
     
     let private escapeChar = 
         parse {
@@ -125,10 +125,13 @@ module Json =
             | RuneChar 'u' ->
                 let! c = hexEscapeDigits
                 if System.Char.IsHighSurrogate c then
-                    do! skipChar '\\'
-                    do! skipChar 'u'
-                    let! low = hexEscapeDigits
-                    return Rune(c, low)
+                    return! parseProduction "High Surrogate" <| 
+                        parse {
+                            do! skipChar '\\'
+                            do! skipChar 'u'
+                            let! low = hexEscapeDigits
+                            return Rune(c, low)
+                        }
                 else
                     return Rune(c)
             | _ -> return! fail "fatal error"
@@ -256,7 +259,7 @@ module Json =
         parseProduction "Value" 
             <| parse {
                 do! skipWhiteSpace
-                let! v = chooseSync [ 
+                let! v = choose [ 
                     parseJsonString; 
                     pBoolean;
                     pNull;

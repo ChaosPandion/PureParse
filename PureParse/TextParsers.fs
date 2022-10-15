@@ -179,7 +179,7 @@ module TextParsers =
             failwith "None of the keywords can be null or empty."
         let description = String.Join (",", keywords)
         let parsers = keywords |> Seq.map parseString<'TState> |> Seq.toList
-        (chooseSync parsers) <??> ("keywords", description)
+        (choose parsers) <??> ("keywords", description)
 
 
     let private digitToInt = function

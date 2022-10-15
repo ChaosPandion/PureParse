@@ -363,7 +363,7 @@ module PLisp =
             return PList values
         }
 
-    let private pValue = chooseSync [  pNumber; pBool <|> pName; pString; pList; ] 
+    let private pValue = choose [  pNumber; pBool <|> pName; pString; pList; ] 
 
     let parseText text = 
         match tryRun pList text () with

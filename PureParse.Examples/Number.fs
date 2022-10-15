@@ -216,7 +216,7 @@ module Number =
     let private parseInteger<'TState> : Parser<'TState, int64> =        
         parse {
             let! sign = opt (parseChar '-' <|> parseChar '+')
-            let! integer = chooseSync [ parseBinaryInteger; parseHexInteger; parseDecimalInteger ]
+            let! integer = choose [ parseBinaryInteger; parseHexInteger; parseDecimalInteger ]
             match sign with
             | Some '-' -> 
                 return -1L * integer
