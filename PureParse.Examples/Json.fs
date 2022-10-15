@@ -102,6 +102,13 @@ module Json =
 
     let private escapeChars = RuneString "\"\\/bfnrtu"
 
+    let private hexEscapeDigits : Parser<unit, char> =
+        parseProduction "Hex Escape Digits" <| (parse {
+            let! h1, h2, h3, h4 = sequence4 hexDigit hexDigit hexDigit hexDigit
+            let c = char (((digitToInt h1) * 4096) + ((digitToInt h2) * 256) + ((digitToInt h3) * 16) + (digitToInt h4))
+            return c
+        } |> onFailure "A unicode escape sequence requires 4 hex digits following the \\u")
+    
     let private escapeChar = 
         parse {
             do! skipChar '\\'
@@ -115,30 +122,13 @@ module Json =
             | RuneChar 'n' -> return Rune('\n')
             | RuneChar 'r' -> return Rune('\r')
             | RuneChar 't' -> return Rune('\t')
-            | RuneChar 'u' -> 
-                let! h1 = hexDigit
-                let! h2 = hexDigit 
-                let! h3 = hexDigit 
-                let! h4 = hexDigit
-                let x = ((digitToInt h1) * 4096) + 
-                            ((digitToInt h2) * 256) + 
-                            ((digitToInt h3) * 16) + 
-                            (digitToInt h4)
-                let c = char x
+            | RuneChar 'u' ->
+                let! c = hexEscapeDigits
                 if System.Char.IsHighSurrogate c then
                     do! skipChar '\\'
                     do! skipChar 'u'
-                    let! h1 = hexDigit
-                    let! h2 = hexDigit 
-                    let! h3 = hexDigit 
-                    let! h4 = hexDigit
-                    let y = ((digitToInt h1) * 4096) + 
-                                ((digitToInt h2) * 256) + 
-                                ((digitToInt h3) * 16) + 
-                                (digitToInt h4)
-                    let low = char y
+                    let! low = hexEscapeDigits
                     return Rune(c, low)
-
                 else
                     return Rune(c)
             | _ -> return! fail "fatal error"

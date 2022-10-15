@@ -94,6 +94,15 @@ module Parsers =
             stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Failure", message)))
             Failure (stream) 
 
+    /// If the provided parser fails report an event to the stream with the provided message.
+    let onFailure<'TState, 'TData> (message:string) (parser:Parser<'TState, 'TData>) : Parser<'TState, 'TData> =
+        if message = null then nullArg (nameof(message))
+        fun (stream:TextStream<'TState>) ->
+            match parser stream with
+            | Success (_, _) as r -> r
+            | Failure (_) ->
+                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Failure", message)))
+                Failure (stream) 
 
     /// This parser is always a success returning an Option value
     let optional (parser:M<_, _>) state = 
@@ -159,19 +168,21 @@ module Parsers =
             loop stream parsers
 
             
-    /// Pass over skip and evaluate parser.
-    let skip (parser:M<_, _>) state =
-        match parser state with
-        | Success(state, _)
-        | Failure(state) -> result () state
+    /// This parser is always a success.
+    let skip<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) : Parser<'TState, unit> =
+        fun stream ->
+            match parser stream with
+            | Success(stream, _) -> result () stream
+            | Failure(_) -> result () stream
 
     /// Pass over skip and evaluate parser.
-    let skipParse (skip:M<_, _>) (parser:M<_, _>) state =
-        match skip state with
-        | Success(state, _) -> parser state
-        | Failure(state) -> parser state
+    let skipParse (skip:M<_, _>) (parser:M<_, _>) =
+        fun stream ->
+            match skip stream with
+            | Success(stream, _) -> parser stream
+            | Failure(_) -> parser stream
 
-    let sequence<'a> (parsers:Parser<_, 'a> list) : Parser<_, 'a list>  = 
+    let sequenceA<'a> (parsers:Parser<_, 'a> list) : Parser<_, 'a list>  = 
         fun (state) ->
             let rec parse ps state rs =
                 match ps with
@@ -183,6 +194,72 @@ module Parsers =
                     | Failure (_) ->
                         Failure (state)
             parse parsers state []
+
+    let sequence<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) : Parser<_, 'TResult list>  = 
+        fun stream ->
+            let rec parse ps stream rs =
+                match ps with
+                | [] -> rs, stream
+                | p::ps -> 
+                    match p stream with
+                    | Success (stream, v) ->
+                        let rs, stream = parse ps stream rs
+                        v::rs, stream
+                    | Failure (_) -> [], stream
+            let result, nextStream = parse parsers stream []
+            if result.Length <> parsers.Length then
+                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Sequence", "The provided parsers did not all succeed.")))
+                Failure(stream)
+            else 
+                Success(nextStream, result)
+
+    let sequence2<'TState, 'TResult1, 'TResult2> 
+        (p1:Parser<'TState, 'TResult1>) 
+        (p2:Parser<'TState, 'TResult2>) : Parser<'TState, 'TResult1 * 'TResult2>  = 
+        fun stream ->
+            match p1 stream with
+            | Success (stream2, r1) ->
+                match p2 stream2 with
+                | Success (stream3, r2) ->
+                    Success (stream3, (r1, r2))
+                | Failure (_) -> Failure (stream)
+            | Failure (_) -> Failure (stream)
+
+    let sequence3<'TState, 'TResult1, 'TResult2, 'TResult3> 
+        (p1:Parser<'TState, 'TResult1>) 
+        (p2:Parser<'TState, 'TResult2>) 
+        (p3:Parser<'TState, 'TResult3>) : Parser<'TState, 'TResult1 * 'TResult2 * 'TResult3>  = 
+        fun stream ->
+            match p1 stream with
+            | Success (stream2, r1) ->
+                match p2 stream2 with
+                | Success (stream3, r2) ->
+                    match p3 stream3 with
+                    | Success (stream4, r3) ->
+                            Success (stream4, (r1, r2, r3))
+                    | Failure (_) -> Failure (stream)
+                | Failure (_) -> Failure (stream)
+            | Failure (_) -> Failure (stream)
+
+    let sequence4<'TState, 'TResult1, 'TResult2, 'TResult3, 'TResult4> 
+        (p1:Parser<'TState, 'TResult1>) 
+        (p2:Parser<'TState, 'TResult2>) 
+        (p3:Parser<'TState, 'TResult3>) 
+        (p4:Parser<'TState, 'TResult4>) : Parser<'TState, 'TResult1 * 'TResult2 * 'TResult3 * 'TResult4>  = 
+        fun stream ->
+            match p1 stream with
+            | Success (stream2, r1) ->
+                match p2 stream2 with
+                | Success (stream3, r2) ->
+                    match p3 stream3 with
+                    | Success (stream4, r3) ->
+                        match p4 stream4 with
+                        | Success (stream5, r4) ->
+                            Success (stream5, (r1, r2, r3, r4))
+                        | Failure (_) -> Failure (stream)
+                    | Failure (_) -> Failure (stream)
+                | Failure (_) -> Failure (stream)
+            | Failure (_) -> Failure (stream)
 
     let skipSequence<'a> (parsers:Parser<_, 'a> list) : Parser<_, unit>  = 
         fun (state) ->
