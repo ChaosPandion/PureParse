@@ -6,7 +6,6 @@ open PureParse
 open Xunit
 
 module ParserTests = begin
-
         
         [<Fact>]
         let ``Test the bind function`` () =
@@ -151,6 +150,72 @@ module ParserTests = begin
             match f with
             | Success (_, ('1', '1', '1', '1')) -> ()
             | _ -> failwith "Expecting Success"
+            
+        [<Fact>]
+        let ``failWithMessage always results in Failure`` () =
+            let f = "failure test"
+            let p:Parser<unit, unit> =
+                parse {
+                    return! failWithMessage f
+                }
+            let r = tryRun p "" ()
+            match r with
+            | RunFailure(_, error, _) when error.Message.Contains f -> ()
+            | _ -> failwith "Error"
+
+        type TestState = { count: int; name: string }
+
+        [<Fact>]
+        let ``setState always results in the correct state`` () =            
+            let p:Parser<TestState, unit> =
+                parse {
+                    do! setState { count = 1; name = "A" }
+                    return ()
+                }
+            let r = tryRun p "" { count = 0; name = "Z" }
+            match r with
+            | RunSuccess({ count = 1; name = "A" }, _, _) -> ()
+            | _ -> failwith "Error"
+
+        [<Fact>]
+        let ``transformState always results in the correct state`` () = 
+            let p:Parser<TestState, unit> =
+                parse {
+                    do! transformState (fun o -> { o with count = o.count + 1 })
+                    return ()
+                }
+            let r = tryRun p "" { count = 0; name = "A" }
+            match r with
+            | RunSuccess({ count = 1; name = "A" }, _, _) -> ()
+            | _ -> failwith "Error"
+
+        [<Fact>]
+        let ``optional is always success`` () = 
+            let p:Parser<unit, char option * char option * char option> =
+                parse {
+                    let! a = optional (parseChar '1')
+                    let! b = optional (parseChar '2')
+                    let! c = optional (parseChar '4')
+                    return a, b, c
+                }
+            let r = tryRun p "14" ()
+            match r with
+            | RunSuccess(_, (Some '1', None, Some '4'), _) -> ()
+            | _ -> failwith "Error"
+
+        [<Fact>]
+        let ``satisfy matches with various predicates`` () = 
+            let p:Parser<unit, Rune * Rune * Rune> =
+                parse {
+                    let! a = satisfy (fun c -> c = Rune '1')
+                    let! b = satisfy (Rune.IsDigit)
+                    let! c = satisfy (Rune.IsLetter)
+                    return a, b, c
+                }
+            let r = tryRun p "14A" ()
+            match r with
+            | RunSuccess(_, (Rune '1', Rune '4', Rune 'A'), _) -> ()
+            | _ -> failwith "Error"
 
     end
 

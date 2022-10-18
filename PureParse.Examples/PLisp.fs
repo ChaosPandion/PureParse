@@ -229,7 +229,7 @@ module PLisp =
         | Some _ -> 
             failwith "Unexpected Sign"
 
-    let private sign<'TState> : Parser<'TState, char option> = opt (parseChar '-' <|> parseChar '+')
+    let private sign<'TState> : Parser<'TState, char option> = optional (parseChar '-' <|> parseChar '+')
     let private exponentChar = RuneCharSeq "eE"
 
     let private parseExponentPart<'TState> : Parser<'TState, double> =
@@ -255,7 +255,7 @@ module PLisp =
 
     let private parseIntegerPart<'TState> : Parser<'TState, int * double> =
             parse {
-                let! sign = opt (parseChar '-' <|> parseChar '+')
+                let! sign = optional (parseChar '-' <|> parseChar '+')
                 let! digits = parseInt32
                 let signModifier = parseSign sign
                 return digits, signModifier
@@ -263,7 +263,7 @@ module PLisp =
 
     let private parseInteger<'TState> : Parser<'TState, int64> =        
         parse {
-            let! sign = opt (parseChar '-' <|> parseChar '+')
+            let! sign = optional (parseChar '-' <|> parseChar '+')
             let! integer = parseDecimalInteger
             match sign with
             | Some '-' -> 
@@ -298,7 +298,7 @@ module PLisp =
             | Rune 't' -> return Rune('\t')
             | Rune '\"' -> return Rune('\"')
             | Rune '\\' -> return Rune('\\')
-            | _ -> return! fail "Invalid escape sequence."
+            | _ -> return! failWithMessage "Invalid escape sequence."
         }
 
     let private pStringEscapeChar =

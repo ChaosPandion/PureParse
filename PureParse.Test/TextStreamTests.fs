@@ -122,3 +122,97 @@ module TextStreamTests =
                 | _ -> failwith "Error"     
             | _ -> failwith "Error"  
         | _ -> failwith "Error"  
+
+
+    [<Fact>]
+    let ``The method Next(set) produces the correct result for a range of Runes.`` () =
+        let ts = TextStream<unit>.Create((), "12345\n12345")
+        let set = Set.ofList [ '1'; '2'; '3'; '4'; '5' ] |> Set.map Rune
+        Assert.Equal(0, ts.Index)          
+        Assert.Equal(1, ts.Column)        
+        Assert.Equal(1, ts.Line)
+        Assert.Equal(11, ts.Remaining)
+        match ts.Next(set) with 
+        | ValueSome (RuneString "12345", next) ->
+            Assert.Equal(5, next.Index)           
+            Assert.Equal(6, next.Column)     
+            Assert.Equal(1, next.Line)
+            Assert.Equal(6, next.Remaining)
+            match next.Next() with 
+            | ValueSome (Rune '\n', next) ->
+                Assert.Equal(6, next.Index)             
+                Assert.Equal(1, next.Column)     
+                Assert.Equal(2, next.Line)
+                Assert.Equal(5, next.Remaining)
+                match next.Next(set) with 
+                | ValueSome (RuneString "12345", next) ->                    
+                    Assert.Equal(11, next.Index)                
+                    Assert.Equal(6, next.Column)    
+                    Assert.Equal(2, next.Line) 
+                    Assert.Equal(0, next.Remaining)
+                | _ -> failwith "Error" 
+            | _ -> failwith "Error"   
+        | _ -> failwith "Error"  
+
+    [<Fact>]
+    let ``The method Peek(set) produces the correct result for a range of Runes.`` () =
+        let ts = TextStream<unit>.Create((), "12345\n12345")
+        let set = Set.ofList [ '1'; '2'; '3'; '4'; '5' ] |> Set.map Rune
+        Assert.Equal(0, ts.Index)          
+        Assert.Equal(1, ts.Column)        
+        Assert.Equal(1, ts.Line)
+        Assert.Equal(11, ts.Remaining)
+        match ts.Peek(set) with 
+        | ValueSome (RuneString "12345") ->
+            Assert.Equal(0, ts.Index)          
+            Assert.Equal(1, ts.Column)        
+            Assert.Equal(1, ts.Line)
+            Assert.Equal(11, ts.Remaining)   
+        | _ -> failwith "Error" 
+
+
+    [<Fact>]
+    let ``The method Next(predicate) produces the correct result for a range of Runes.`` () =
+        let ts = TextStream<unit>.Create((), "12345\n12345")
+        let p = Rune.IsDigit
+        Assert.Equal(0, ts.Index)          
+        Assert.Equal(1, ts.Column)        
+        Assert.Equal(1, ts.Line)
+        Assert.Equal(11, ts.Remaining)
+        match ts.Next(p) with 
+        | ValueSome (RuneString "12345", next) ->
+            Assert.Equal(5, next.Index)           
+            Assert.Equal(6, next.Column)     
+            Assert.Equal(1, next.Line)
+            Assert.Equal(6, next.Remaining)
+            match next.Next() with 
+            | ValueSome (Rune '\n', next) ->
+                Assert.Equal(6, next.Index)             
+                Assert.Equal(1, next.Column)     
+                Assert.Equal(2, next.Line)
+                Assert.Equal(5, next.Remaining)
+                match next.Next(p) with 
+                | ValueSome (RuneString "12345", next) ->                    
+                    Assert.Equal(11, next.Index)                
+                    Assert.Equal(6, next.Column)    
+                    Assert.Equal(2, next.Line) 
+                    Assert.Equal(0, next.Remaining)
+                | _ -> failwith "Error" 
+            | _ -> failwith "Error"   
+        | _ -> failwith "Error"  
+
+    [<Fact>]
+    let ``The method Peek(predicate) produces the correct result for a range of Runes.`` () =
+        let ts = TextStream<unit>.Create((), "12345\n12345")
+        let p = Rune.IsDigit
+        Assert.Equal(0, ts.Index)          
+        Assert.Equal(1, ts.Column)        
+        Assert.Equal(1, ts.Line)
+        Assert.Equal(11, ts.Remaining)
+        match ts.Peek(p) with 
+        | ValueSome (RuneString "12345") ->
+            Assert.Equal(0, ts.Index)          
+            Assert.Equal(1, ts.Column)        
+            Assert.Equal(1, ts.Line)
+            Assert.Equal(11, ts.Remaining)   
+        | _ -> failwith "Error" 

@@ -181,7 +181,7 @@ module Number =
         | Some _ -> 
             failwith "Unexpected Sign"
 
-    let private sign<'TState> : Parser<'TState, char option> = opt (parseChar '-' <|> parseChar '+')
+    let private sign<'TState> : Parser<'TState, char option> = optional (parseChar '-' <|> parseChar '+')
     let private exponentChar = RuneCharSeq "eE"
 
     let private parseExponentPart<'TState> : Parser<'TState, double> =
@@ -207,7 +207,7 @@ module Number =
 
     let private parseIntegerPart<'TState> : Parser<'TState, int * double> =
         parse {
-            let! sign = opt (parseChar '-' <|> parseChar '+')
+            let! sign = optional (parseChar '-' <|> parseChar '+')
             let! digits = parseInt32
             let signModifier = parseSign sign
             return digits, signModifier
@@ -215,7 +215,7 @@ module Number =
 
     let private parseInteger<'TState> : Parser<'TState, int64> =        
         parse {
-            let! sign = opt (parseChar '-' <|> parseChar '+')
+            let! sign = optional (parseChar '-' <|> parseChar '+')
             let! integer = choose [ parseBinaryInteger; parseHexInteger; parseDecimalInteger ]
             match sign with
             | Some '-' -> 

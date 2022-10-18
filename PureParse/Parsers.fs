@@ -50,7 +50,6 @@ module Parsers =
             | Failure (_) -> 
                 Failure (stream)
 
-
     /// Given two parsers evaluate both and return the result from the right parser.
     let sequenceRight<'TState, 'TData1, 'TData2> (left:Parser<'TState, 'TData1>) (right:Parser<'TState, 'TData2>) : Parser<'TState, 'TData2> = 
         fun stream ->
@@ -59,7 +58,7 @@ module Parsers =
             | Failure (_) -> Failure (stream)
 
     /// Given a list of parsers, evaluate them in sequence returning a list containing the results of each parser,
-    let sequence<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) : Parser<_, 'TResult list>  = 
+    let sequence<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) : Parser<'TState, 'TResult list>  = 
         fun stream ->
             let rec parse ps stream rs =
                 match ps with
@@ -184,28 +183,35 @@ module Parsers =
                         match p4 stream with
                         | Success (_, _) as result -> result
                         | Failure (_) -> Failure (stream)
-
-    let (>>=) = bind
-    let (||>) = map
-    let (<-|) = sequenceLeft
-    let (|->) = sequenceRight
-    let (<|>) = choose2
           
-
-
-
-    /// The 'return' or 'unit' function of the monad
-    let fail<'TState, 'TData> (message:string) : Parser<'TState, 'TData> =
+    /// Raises a ParseFailure event with the provided message and always returns a Failure result.
+    let failWithMessage<'TState, 'TData> (message:string) : Parser<'TState, 'TData> =
+        if message = null then nullArg (nameof(message))
         fun (stream:TextStream<'TState>) ->
             stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Failure", message)))
             Failure (stream) 
 
-    /// This parser is always a success returning an Option value
-    let optional (parser:M<_, _>) state = 
-        match parser state with
-        | Success (state, value) -> Success (state, Some value) 
-        | Failure (_) -> Success (state, None)
+    /// Provided with a new state return Success with a new TextStream that contains the new state
+    let setState<'TState> (nextState:'TState) : Parser<'TState, unit> =
+        fun (stream:TextStream<'TState>) ->
+            Success (stream.SetState nextState, ())
+            
+    /// Provided with a function that takes the current state and returns the next state, 
+    /// return Success with a new TextStream that contains the new state.
+    let transformState<'TState> (transform:'TState -> 'TState) : Parser<'TState, unit> =
+        fun (stream:TextStream<'TState>) ->
+            Success (stream.TransformState transform, ())
 
+    /// This parser is always a success returning an Option value
+    let optional<'TState, 'TData> (parser:Parser<'TState, 'TData>) : Parser<'TState, 'TData option> =
+        fun (stream:TextStream<'TState>) ->
+            match parser stream with
+            | Success (stream, value) -> 
+                Success (stream, Some value) 
+            | Failure (_) -> 
+                Success (stream, None)
+
+    /// Evaluate the next rune using the provided predicate and return the result.
     let satisfy<'TState> (predicate:Rune -> bool) =
         fun (stream:TextStream<'TState>) ->
             match stream.Next() with
@@ -219,37 +225,27 @@ module Parsers =
         match parser state with
         | Success (_, value) -> Success (state, Some value) 
         | Failure (_) -> Success (state, None)
-
-    /// This parser is always a success returning an Option value
-    let opt<'TState, 'TData> (parser:Parser<'TState, 'TData>):Parser<'TState, 'TData option> =
-        fun (stream:TextStream<'TState>) ->
-            match parser stream with
-            | Success (state, value) -> Success (state, Some value) 
-            | Failure (_) -> Success (stream, None)
-
             
-    /// This parser is always a success.
+    /// The provided parser is evaluated and the result is always a success.
     let skip<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) : Parser<'TState, unit> =
         fun stream ->
             match parser stream with
             | Success(stream, _) -> result () stream
-            | Failure(_) -> result () stream
-            
+            | Failure(_) -> result () stream            
 
-
-    let skipSequence<'a> (parsers:Parser<_, 'a> list) : Parser<_, unit>  = skip (sequence parsers)
+    /// Evaluate all of the provided parsers and ignore the results.
+    let skipSequence<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) : Parser<'TState, unit>  = skip (sequence parsers)
 
     /// Pass over skip and evaluate parser.
-    let skipParse (skip:M<_, _>) (parser:M<_, _>) =
-        fun stream ->
+    let skipParse<'TState, 'TResult1, 'TResult2> (skip:Parser<'TState, 'TResult1>) (parser:Parser<'TState, 'TResult2>) : Parser<'TState, 'TResult2> =
+        fun (stream: TextStream<'TState>) ->
             match skip stream with
             | Success(stream, _) -> parser stream
             | Failure(_) -> parser stream
 
-
     /// The parser 'p' is given a formal name that is provided when an error occurs.
-    let (<?>) p (name:string) =
-        fun stream ->
+    let provideName<'TState, 'TResult> (p: Parser<'TState, 'TResult>) (name:string) : Parser<'TState, 'TResult> =
+        fun (stream: TextStream<'TState>) ->
             match p stream with
             | Success (_, _) as result -> result
             | Failure (stream) -> 
@@ -257,19 +253,17 @@ module Parsers =
                 Failure (stream)
 
     /// The parser 'p' is given a formal name and description that is provided when an error occurs.
-    let (<??>) p (name:string, description:string) =
-        fun stream ->
+    let provideNameAndDescription<'TState, 'TResult> (p: Parser<'TState, 'TResult>) (name:string, description:string) : Parser<'TState, 'TResult> =
+        fun (stream: TextStream<'TState>) ->
             match p stream with
             | Success (_, _) as result -> result
             | Failure (stream) -> 
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData(name, description)))
                 Failure (stream)
 
-
-
     /// This function is the primary way to organize the event stream into productions.
     let parseProduction<'TState, 'TResult> (name: string) (parser: Parser<'TState, 'TResult>) : Parser<'TState, 'TResult> = 
-        fun (stream) ->
+        fun (stream: TextStream<'TState>) ->
             let ev = EnterProduction(stream.CreateEventData(name)) 
             stream.ReportEvent ev         
             match parser stream with
@@ -280,5 +274,12 @@ module Parsers =
             | Failure (stream) ->  
                 let ev = ExitProductionFailure(stream.CreateEventData(name))  
                 stream.ReportEvent ev
-                Failure(stream)
-                
+                Failure(stream)     
+
+    let (>>=) = bind
+    let (||>) = map
+    let (<-|) = sequenceLeft
+    let (|->) = sequenceRight
+    let (<|>) = choose2    
+    let (<?>) = provideName
+    let (<??>) = provideNameAndDescription

@@ -59,11 +59,11 @@ module Json =
         | Some _ -> 
             failwith "Unexpected Sign"
 
-    let private sign:Parser<unit,char option> = parse { return! opt (parseChar '+' <|> parseChar '-') }
+    let private sign:Parser<unit,char option> = parse { return! optional (parseChar '+' <|> parseChar '-') }
  
     let private parseOptionalMinus:Parser<unit, float> = 
         parse {
-            match! opt (parseChar '-') with
+            match! optional (parseChar '-') with
             | Some '-' -> return -1.0
             | _ -> return 1.0
         }
@@ -107,7 +107,7 @@ module Json =
             let! h1, h2, h3, h4 = sequence4 hexDigit hexDigit hexDigit hexDigit
             let c = char (((digitToInt h1) * 4096) + ((digitToInt h2) * 256) + ((digitToInt h3) * 16) + (digitToInt h4))
             return c
-        } <?> "A unicode escape sequence requires 4 hex digits following the \\u")
+        } <??> ("Hex Digits", "A unicode escape sequence requires 4 hex digits following the \\u"))
     
     let private escapeChar = 
         parse {
@@ -134,7 +134,7 @@ module Json =
                         }
                 else
                     return Rune(c)
-            | _ -> return! fail "fatal error"
+            | _ -> return! failWithMessage "fatal error"
         }
 
     let private stringChars = parseList (nonEscapeChar <|> escapeChar) (Many 0)
