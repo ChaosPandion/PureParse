@@ -221,10 +221,13 @@ module Parsers =
                 Failure (stream)  
         
     /// This parser is always a success returning an Option value. The state of the computation is unchanged.
-    let peek (parser:M<_, _>) state = 
-        match parser state with
-        | Success (_, value) -> Success (state, Some value) 
-        | Failure (_) -> Success (state, None)
+    let peek<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) : Parser<'TState, option<'TResult>> = 
+        fun (stream: TextStream<'TState>) ->
+            match parser stream with
+            | Success (_, value) -> 
+                Success (stream, Some value) 
+            | Failure (_) -> 
+                Success (stream, None)
             
     /// The provided parser is evaluated and the result is always a success.
     let skip<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) : Parser<'TState, unit> =

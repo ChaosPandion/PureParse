@@ -217,5 +217,155 @@ module ParserTests = begin
             | RunSuccess(_, (Rune '1', Rune '4', Rune 'A'), _) -> ()
             | _ -> failwith "Error"
 
+        [<Fact>]
+        let ``peek is a success and does not change the stream`` () = 
+            let p:Parser<unit, Rune option> =
+                parse {
+                    let! a = peek (satisfy Rune.IsDigit)
+                    return a
+                }
+            let stream = TextStream.Create((), "1")
+            let result = p stream
+            match result with
+            | Success (stream, Some (Rune '1')) 
+                when stream.Index = 0 -> ()
+            | _ -> failwith "Error"
+
+        [<Fact>]
+        let ``skipSequence is a success`` () = 
+            let p:Parser<unit, Rune> = satisfy Rune.IsDigit
+            let s:Parser<unit, unit> = skipSequence [p;p;p;]
+
+            let stream = TextStream.Create((), "1234")
+            let result = s stream
+            match result with
+            | Success (stream, ()) 
+                when stream.Index = 3 -> ()
+            | _ -> failwith "Error"
+
+        [<Fact>]
+        let ``skipParse is a success`` () = 
+            let a:Parser<unit, Rune> = satisfy Rune.IsDigit
+            let b:Parser<unit, Rune> = satisfy Rune.IsLetter
+            let p:Parser<unit, Rune> = skipParse a b
+
+            let stream = TextStream.Create((), "1A")
+            let result = p stream
+            match result with
+            | Success (_, Rune 'A') -> ()
+            | _ -> failwith "Error"
+
+        [<Theory>]
+        [<InlineData("1")>]
+        [<InlineData("A")>]
+        [<InlineData(" ")>]
+        let ``choose is a success`` text = 
+            let a:Parser<unit, Rune> = satisfy Rune.IsDigit
+            let b:Parser<unit, Rune> = satisfy Rune.IsLetter
+            let c:Parser<unit, Rune> = satisfy Rune.IsWhiteSpace
+            let p:Parser<unit, Rune> = choose [a; b; c]
+
+            let stream = TextStream.Create((), text)
+            let result = p stream
+            match result with
+            | Success (_, Rune text) -> ()
+            | _ -> failwith "Error"
+
+        [<Theory>]
+        [<InlineData("1")>]
+        [<InlineData("A")>]
+        let ``choose2 is a success`` text = 
+            let a:Parser<unit, Rune> = satisfy Rune.IsDigit
+            let b:Parser<unit, Rune> = satisfy Rune.IsLetter
+            let p:Parser<unit, Rune> = choose2 a b
+
+            let stream = TextStream.Create((), text)
+            let result = p stream
+            match result with
+            | Success (_, Rune text) -> ()
+            | _ -> failwith "Error"
+
+        [<Theory>]
+        [<InlineData("1")>]
+        [<InlineData("A")>]
+        [<InlineData(" ")>]
+        let ``choose3 is a success`` text = 
+            let a:Parser<unit, Rune> = satisfy Rune.IsDigit
+            let b:Parser<unit, Rune> = satisfy Rune.IsLetter
+            let c:Parser<unit, Rune> = satisfy Rune.IsWhiteSpace
+            let p:Parser<unit, Rune> = choose3 a b c
+
+            let stream = TextStream.Create((), text)
+            let result = p stream
+            match result with
+            | Success (_, Rune text) -> ()
+            | _ -> failwith "Error"
+
+        [<Theory>]
+        [<InlineData("1")>]
+        [<InlineData("A")>]
+        [<InlineData(" ")>]
+        [<InlineData("X")>]
+        let ``choose4 is a success`` text = 
+            let a:Parser<unit, Rune> = satisfy Rune.IsDigit
+            let b:Parser<unit, Rune> = satisfy Rune.IsLetter
+            let c:Parser<unit, Rune> = satisfy Rune.IsWhiteSpace
+            let d:Parser<unit, Rune> = satisfy (fun r -> r = Rune 'X')
+            let p:Parser<unit, Rune> = choose4 a b c d
+
+            let stream = TextStream.Create((), text)
+            let result = p stream
+            match result with
+            | Success (_, Rune text) -> ()
+            | _ -> failwith "Error"
+            
+        [<Theory>]
+        [<InlineData("1", false)>]
+        [<InlineData("A", true)>]
+        let ``provideName is a pass through`` text shouldFail = 
+            let p:Parser<unit, Rune> =
+                parse {
+                    let! a = provideName (satisfy Rune.IsDigit) "Single Digit"
+                    return a
+                }
+            let stream = TextStream.Create((), text)
+            let result = p stream
+            match result with
+            | Success (_, _) when not shouldFail -> ()
+            | Failure (_) when shouldFail -> ()
+            | _ -> failwith "Error"
+            
+        [<Theory>]
+        [<InlineData("1", false)>]
+        [<InlineData("A", true)>]
+        let ``provideNameAndDescription is a pass through`` text shouldFail = 
+            let p:Parser<unit, Rune> =
+                parse {
+                    let! a = provideNameAndDescription (satisfy Rune.IsDigit) ("Single Digit", "aaa")
+                    return a
+                }
+            let stream = TextStream.Create((), text)
+            let result = p stream
+            match result with
+            | Success (_, _) when not shouldFail -> ()
+            | Failure (_) when shouldFail -> ()
+            | _ -> failwith "Error"
+            
+        [<Theory>]
+        [<InlineData("1", false)>]
+        [<InlineData("A", true)>]
+        let ``parseProduction is a pass through`` text shouldFail = 
+            let p:Parser<unit, Rune> =
+                parse {
+                    let! a = parseProduction "Single Digit" (satisfy Rune.IsDigit) 
+                    return a
+                }
+            let stream = TextStream.Create((), text)
+            let result = p stream
+            match result with
+            | Success (_, _) when not shouldFail -> ()
+            | Failure (_) when shouldFail -> ()
+            | _ -> failwith "Error"
+
     end
 

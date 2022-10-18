@@ -13,7 +13,7 @@ let accept tree =
 
     ()
 
-let json = " [ 1, 2, 3, 4, [ true, false, null, [ 1, 2, 3, 4, 5, 6, 8., \"\\uaa1\"  ] ] ] "
+let json = " [ 1, 2, 3, 4, [ true, false, null, [ 1, 2, 3, 4, 5, 6, 8, \"\\uaa1\"  ] ] ] "
 //let json = System.IO.File.ReadAllText ("C:/Users/Matthew/Desktop/turkish.json")
 match tryRun Json.parser json () with
 | RunSuccess(state, data, tree) ->
