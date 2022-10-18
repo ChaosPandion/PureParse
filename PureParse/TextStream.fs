@@ -21,7 +21,6 @@ module TextStream =
         /// <typeparam name="TState">The custom user state for the stream.</typeparam>
         /// <typeparam name="TContent">The content of the stream..</typeparam>
         type ITextStream<'TState, 'TContent when 'TContent: comparison> = interface
-
             abstract member State : 'TState
             abstract member Index : int
             abstract member Line : int
@@ -38,13 +37,16 @@ module TextStream =
             abstract member Peek : range : Range<int> -> ValueOption<ReadOnlyMemory<'TContent>>
             abstract member Peek : set : Set<'TContent> -> ValueOption<ReadOnlyMemory<'TContent>>
             abstract member Peek : predicate : ('TContent -> bool) -> ValueOption<ReadOnlyMemory<'TContent>>
+            abstract member Peek : exactMatch : string -> ValueOption<ReadOnlyMemory<'TContent>>
+            abstract member Peek : exactMatch : ReadOnlyMemory<'TContent> -> ValueOption<ReadOnlyMemory<'TContent>>
 
             abstract member Next : unit -> ValueOption<'TContent * ITextStream<'TState, 'TContent>>
             abstract member Next : count : int -> ValueOption<ReadOnlyMemory<'TContent> * ITextStream<'TState, 'TContent>>
             abstract member Next : range : Range<int> -> ValueOption<ReadOnlyMemory<'TContent> * ITextStream<'TState, 'TContent>>
             abstract member Next : set : Set<'TContent> -> ValueOption<ReadOnlyMemory<'TContent> * ITextStream<'TState, 'TContent>>
             abstract member Next : predicate : ('TContent -> bool) -> ValueOption<ReadOnlyMemory<'TContent> * ITextStream<'TState, 'TContent>>
-
+            abstract member Next : exactMatch : string -> ValueOption<ReadOnlyMemory<'TContent> * ITextStream<'TState, 'TContent>>
+            abstract member Next : exactMatch : ReadOnlyMemory<'TContent> -> ValueOption<ReadOnlyMemory<'TContent> * ITextStream<'TState, 'TContent>>
         end
 
         type TextStream<'TState> private (
@@ -76,6 +78,16 @@ module TextStream =
                     if i = span.Length - 1 then
                         i <- span.Length
                 i
+
+            let calculateLineAndColumn (m:ReadOnlyMemory<Rune>) = 
+                let mutable l = line
+                let mutable c = column
+                for r in m.Span do
+                    c <- c + 1
+                    if r = newline then
+                        c <- 1
+                        l <- l + 1
+                l, c
 
             static member Create<'TState> (state: 'TState, text:string) =
                 if text = null then nullArg (nameof(text))
@@ -168,7 +180,25 @@ module TextStream =
                     if i = 0 then
                         ValueNone
                     else
-                        ValueSome(memory.Slice(index, index + i - index) )
+                        ValueSome(memory.Slice(index, index + i - index))
+
+            member this.Peek (exactMatch:string) : ValueOption<ReadOnlyMemory<Rune>> =
+                this.Assertions()
+                if exactMatch = null then nullArg (nameof(exactMatch))
+                let runes = exactMatch.EnumerateRunes() |> Seq.toArray |> ReadOnlyMemory
+                this.Peek(runes)
+
+            member this.Peek (exactMatch:ReadOnlyMemory<Rune>) : ValueOption<ReadOnlyMemory<Rune>> =
+                this.Assertions()
+                if exactMatch.Length > this.Remaining then
+                    ValueNone
+                else
+                    let data = memory.Slice(index, exactMatch.Length)
+                    if not <| data.Span.SequenceEqual(exactMatch.Span) then
+                        ValueNone
+                    else
+                        ValueSome(data)  
+
 
             member _.Next () : ValueOption<Rune * TextStream<'TState>> =
                 if index < memory.Length then 
@@ -187,13 +217,7 @@ module TextStream =
                     ValueNone
                 else
                     let r = memory.Slice(index, count)
-                    let mutable l = line
-                    let mutable c = column
-                    for r in r.Span do
-                        c <- c + 1
-                        if r = newline then
-                            c <- 1
-                            l <- l + 1
+                    let l, c = calculateLineAndColumn r
                     ValueSome (r, TextStream<'TState>(state, memory, eventChannel, eventTreeTask, index + count, l, c))
 
             member this.Next (set:Set<Rune>) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> = 
@@ -211,15 +235,28 @@ module TextStream =
                     if i = 0 then
                         ValueNone
                     else
-                        let result = memory.Slice(index, index + i - index)                                
-                        let mutable l = line
-                        let mutable c = column
-                        for r in result.Span do
-                            c <- c + 1
-                            if r = newline then
-                                c <- 1
-                                l <- l + 1
+                        let result = memory.Slice(index, index + i - index)
+                        let l, c = calculateLineAndColumn result
                         ValueSome(result, TextStream<'TState>(state, memory, eventChannel, eventTreeTask, index + i, l, c))
+
+            member this.Next (exactMatch:string) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
+                this.Assertions()
+                if exactMatch = null then nullArg (nameof(exactMatch))
+                let runes = exactMatch.EnumerateRunes() |> Seq.toArray |> ReadOnlyMemory
+                this.Next(runes)
+
+            member this.Next (exactMatch:ReadOnlyMemory<Rune>) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
+                this.Assertions()
+                if exactMatch.Length > this.Remaining then
+                    ValueNone
+                else
+                    let data = memory.Slice(index, exactMatch.Length)
+                    let span = data.Span
+                    if not <| span.SequenceEqual(exactMatch.Span) then
+                        ValueNone
+                    else
+                        let l, c = calculateLineAndColumn data
+                        ValueSome(data, TextStream<'TState>(state, memory, eventChannel, eventTreeTask, index + exactMatch.Length, l, c))                        
 
     
     end

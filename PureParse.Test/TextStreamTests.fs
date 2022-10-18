@@ -216,3 +216,43 @@ module TextStreamTests =
             Assert.Equal(1, ts.Line)
             Assert.Equal(11, ts.Remaining)   
         | _ -> failwith "Error" 
+
+
+    [<Theory>]
+    [<InlineData("AAAAA")>]
+    [<InlineData("BBBBB")>]
+    let ``Next(text) produces the correct result.`` text =
+        let stream = TextStream<unit>.Create((), text)
+        match stream.Next text with 
+        | ValueSome (RuneString x, _) when x = text  -> ()
+        | _ -> failwith "Error" 
+
+    [<Theory>]
+    [<InlineData("AAAAA")>]
+    [<InlineData("BBBBB")>]
+    let ``Peek(text) produces the correct result.`` text =
+        let stream = TextStream<unit>.Create((), text)
+        match stream.Peek text with 
+        | ValueSome (RuneString x) when x = text  -> ()
+        | _ -> failwith "Error" 
+
+    [<Theory>]
+    [<InlineData("AAAAA")>]
+    [<InlineData("BBBBB")>]
+    let ``Next(runes) produces the correct result.`` text =
+        let stream = TextStream<unit>.Create((), text)
+        let runes = text.EnumerateRunes() |> Seq.toArray |> ReadOnlyMemory
+        match stream.Next runes with 
+        | ValueSome (RuneString x, _) when x = text  -> ()
+        | _ -> failwith "Error" 
+
+    [<Theory>]
+    [<InlineData("AAAAA")>]
+    [<InlineData("BBBBB")>]
+    let ``Peek(runes) produces the correct result.`` text =
+        let stream = TextStream<unit>.Create((), text)
+        let runes = text.EnumerateRunes() |> Seq.toArray |> ReadOnlyMemory
+        match stream.Peek runes with 
+        | ValueSome (RuneString x) when x = text  -> ()
+        | _ -> failwith "Error" 
+
