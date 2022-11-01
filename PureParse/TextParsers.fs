@@ -6,7 +6,7 @@ open System.Text
 [<AutoOpen>]
 module TextParsers =
 
-    let charRange<'TState> (lower:char) (upper:char) : Parser<'TState, Rune> =
+    let charRange<'TState> (lower:char) (upper:char) : Parser<'TState, char> =
         if lower >= upper then
             failwithf "The value %c must be less than %c" lower upper
         if Char.IsSurrogate(lower) || Char.IsSurrogate(upper) then
@@ -16,7 +16,7 @@ module TextParsers =
         let upper = Rune(upper)
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
-            | ValueSome(r, ns) when r >= lower && r <= upper -> Success(ns, r)
+            | ValueSome(r, ns) when r >= lower && r <= upper -> Success(ns, toChar r)
             | _ -> 
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Character Range", message)))
                 Failure(stream)
@@ -61,36 +61,57 @@ module TextParsers =
                 Failure(stream)
 
     let parseWhiteSpace<'TState> () : Parser<'TState, string> =  
-        fun (stream:TextStream<'TState>) ->             
-            let rec loop (stream:TextStream<'TState>) (sb:System.Text.StringBuilder) =
-                match stream.Next() with
-                | ValueSome(r, ns) when Rune.IsWhiteSpace(r) ->
-                    loop ns (sb.Append(r.ToString()))
-                | _ -> stream, sb
-            let nextStream, sb = loop stream (System.Text.StringBuilder())
-            if nextStream.Index <> stream.Index
-            then Success (nextStream, sb.ToString())
-            else
+        fun (stream:TextStream<'TState>) ->
+            match stream.Next (Rune.IsWhiteSpace) with
+            | ValueSome (value, stream) -> 
+                let append (sb:StringBuilder) (r:Rune) = sb.Append (r.ToString()) 
+                let sb = value.ToArray() |> Array.fold append (StringBuilder())
+                Success(stream, sb.ToString())
+            | ValueNone ->
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting --> white space.")))
                 Failure(stream)
+
+    //let skipRune<'TState> (r:Rune) : Parser<'TState, unit> = 
+    //    (skip (parseRune r)) <??> ("skipRune", $"Failed to skip Rune {r}")
+    //let skipChar<'TState> (c:char) : Parser<'TState, unit> = 
+    //    (skip (parseChar c)) <??> ("skipChar", $"Failed to skip Char {c}")
+    //let skipString<'TState> (s:string) : Parser<'TState, unit> = 
+    //    (skip (parseString s)) <??> ("skipChar", $"Failed to skip String '{s}'")          
+    //let skipWhiteSpace<'TState> () : Parser<'TState, unit> = 
+    //    (skip (parseWhiteSpace ())) <??> ("skipWhiteSpace", "Failed to skip white space") 
+    
+    
+    let toStringMessage (x:obj) : string =
+        let charMap c  =
+            match c with
+            | c when Char.IsWhiteSpace(c) -> "\\u" + Rune(c).Value.ToString("X4")
+            | c -> "'" + c.ToString() + "'"
+        let fail m = 
+            failwith $"""The type {if x = null then "(null)" else x.GetType().ToString()} cannot be converted to a string message.\n{m}"""
+        match x with
+        | null -> fail "The input was null."
+        | :? string as s when s.Length = 1 -> charMap s[0]
+        | :? string as s -> "'" + (s |> Seq.map charMap |> Seq.reduce (+)) + "'"         
+        | :? char as c -> charMap c
+        | :? Rune as r when Rune.IsWhiteSpace(r) -> "\\u" + r.Value.ToString("X4")
+        | :? Rune as r -> "'" + r.ToString() + "'"
+        | _ -> fail "The type is not a variant of char."
 
     let skipRune<'TState> (r:Rune) : Parser<'TState, unit> =
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(x, ns) when x = r -> Success(ns, ())
             | _ ->
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String",  $"Expecting --> {r}")))
+                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String",  $"Expecting --> {toStringMessage r}")))
                 Failure(stream)
-
     let skipChar<'TState> (c:char) : Parser<'TState, unit> =
         let expect = Rune(c)
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(r, ns) when r = expect -> Success(ns, ())
             | _ ->
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String",  $"Expecting --> {expect}")))
+                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String",  $"Expecting --> {toStringMessage expect}")))
                 Failure(stream)
-
     let skipString<'TState> (s:string) : Parser<'TState, unit> =  
         if String.IsNullOrEmpty s then
             invalidArg (nameof s) "Must be a non-empty string."
@@ -99,7 +120,7 @@ module TextParsers =
             match stream.Next(count) with
             | ValueSome(Runes s, ns) -> Success(ns, ())
             | _ ->
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting --> '{s}'")))
+                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting --> {toStringMessage s}")))
                 Failure(stream)
         
     let skipWhiteSpace<'TState> () : Parser<'TState, unit> =  
@@ -115,32 +136,37 @@ module TextParsers =
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting --> white space.")))
                 Failure(stream)
 
+
+    let parseRuneBySet<'TState> (set:Set<Rune>) (contains:bool) : Parser<'TState, Rune> =
+        let message = $"""Expecting --> {System.String.Join(",", set |> Set.map toStringMessage)}.""" 
+        let parserName = "Rune Set"
+        fun (stream:TextStream<'TState>) -> 
+            match stream.Next() with
+            | ValueSome(r, ns) when contains && set.Contains r -> Success(ns, r)
+            | ValueSome(r, ns) when not contains && not <| set.Contains r -> Success(ns, r)
+            | _ ->
+                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData(parserName, message)))
+                Failure(stream)
+
+    //let parseAnyRuneInSet<'TState> (set:Set<Rune>) : Parser<'TState, Rune> = parseRuneBySet set true
+
+    //let parseAnyRuneNotInSet<'TState> (set:Set<Rune>) : Parser<'TState, Rune> = parseRuneBySet set false
+
     let parseAnyRuneInSet<'TState> (set:Set<Rune>) : Parser<'TState, Rune> = 
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(r, ns) when set.Contains r -> Success(ns, r)
             | _ ->
-                let map s =
-                    if Rune.IsWhiteSpace(s) then
-                        "\\u" + s.Value.ToString("X4")
-                    else
-                        "'" + s.ToString() + "'"
-                let message = $"""Expecting --> {System.String.Join(",", set |> Set.map map)}."""
+                let message = $"""Expecting --> {System.String.Join(",", set |> Set.map toStringMessage)}."""
                 stream.ReportEvent(
                     ParseFailure(stream.CreateErrorEventData("Rune Set", message)))
                 Failure(stream)
-
     let parseAnyRuneNotInSet<'TState> (set:Set<Rune>) : Parser<'TState, Rune> = 
         fun (stream:TextStream<'TState>) -> 
             match stream.Next() with
             | ValueSome(r, ns) when not <| set.Contains r -> Success(ns, r)
             | _ ->
-                let map s =
-                    if Rune.IsWhiteSpace(s) then
-                        "\\u" + s.Value.ToString("X4")
-                    else
-                        "'" + s.ToString() + "'"
-                let message = $"""Expecting --> {System.String.Join(",", set |> Set.map map)}."""
+                let message = $"""Expecting --> {System.String.Join(",", set |> Set.map toStringMessage)}."""
                 stream.ReportEvent(
                     ParseFailure(stream.CreateErrorEventData("Rune Set", message)))
                 Failure(stream)

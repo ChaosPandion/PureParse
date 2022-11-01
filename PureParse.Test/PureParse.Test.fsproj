@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="ParserTests.fs" />
+    <Compile Include="TextParserTests.fs" />
     <Compile Include="EventTreeTests.fs" />
     <Compile Include="ParsePLispTests.fs" />
     <Compile Include="ParseNumberTests.fs" />

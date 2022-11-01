@@ -82,7 +82,6 @@ module ListParsers =
 
 
         fun (stream:TextStream<'TState>) ->
-            let firstStream = stream
             let rec parse stream elements =
                 match parser stream with
                 | Failure (_) -> 

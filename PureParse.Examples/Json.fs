@@ -160,9 +160,7 @@ module Json =
     let private parseJsonNumber =
         parseProduction "Number" 
             <| parse {
-            let! ip, sign = parseIntegerPart  
-            let! fp = parseFractionalPart <|> result 0.0
-            let! ep = parseExponentPart <|> result 1.0
+            let! (ip, sign), fp, ep = sequence3 parseIntegerPart (parseFractionalPart <|> result 0.0) (parseExponentPart <|> result 1.0)          
             let x = double ip + fp
             let signed = sign * x
             let n = signed * ep

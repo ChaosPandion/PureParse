@@ -114,16 +114,16 @@ module Number =
         | c::cs -> int64(digitToInt (toChar c)) * (pown b cs.Length) + parseIntegerRunesWithBase b cs
 
     let private parseDigit<'TState> : Parser<'TState, Rune> = 
-        charRange '0' '9'
+        (charRange '0' '9') ||> Rune
 
     let private parseNonZeroDigit<'TState> : Parser<'TState, Rune> = 
-        charRange '1' '9'
+        (charRange '1' '9') ||> Rune
 
     let private parseBinaryDigit<'TState> : Parser<'TState, Rune> = 
-        charRange '0' '1'
+        (charRange '0' '1')||> Rune
 
     let private parseHexDigit<'TState> : Parser<'TState, Rune> = 
-        parseDigit <|> charRange 'a' 'f' <|> charRange 'A' 'F'
+        (parseDigit <|> (charRange 'a' 'f' ||> Rune) <|> (charRange 'A' 'F' ||> Rune))
 
     let private parseBinarySpecifier<'TState> : Parser<'TState, Rune> = 
         parseRune (Rune('b')) <|> parseRune (Rune('B'))

@@ -17,10 +17,15 @@ open Events
 module TextStream = 
     begin
 
+        let inline convertToMemory (text:string) =
+            if text = null then nullArg (nameof(text))
+            text.ReplaceLineEndings("\n").EnumerateRunes() |> Seq.toArray |> ReadOnlyMemory
+
         /// <summary>A stream of content.</summary>
         /// <typeparam name="TState">The custom user state for the stream.</typeparam>
         /// <typeparam name="TContent">The content of the stream..</typeparam>
         type ITextStream<'TState, 'TContent when 'TContent: comparison> = interface
+
             abstract member State : 'TState
             abstract member Index : int
             abstract member Line : int
@@ -90,9 +95,7 @@ module TextStream =
                 l, c
 
             static member Create<'TState> (state: 'TState, text:string) =
-                if text = null then nullArg (nameof(text))
-                let text = text.ReplaceLineEndings("\n")
-                let memory = ReadOnlyMemory(text.EnumerateRunes() |> Seq.toArray)
+                let memory = convertToMemory text
                 let eventChannel = Channel.CreateUnbounded<Event<'TState>>()
                 let eventTreeTask = Events.createEventTreeBuilder text eventChannel
                 TextStream<'TState>(state, memory, eventChannel, eventTreeTask, 0, 1, 1)
@@ -241,9 +244,7 @@ module TextStream =
 
             member this.Next (exactMatch:string) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
                 this.Assertions()
-                if exactMatch = null then nullArg (nameof(exactMatch))
-                let runes = exactMatch.EnumerateRunes() |> Seq.toArray |> ReadOnlyMemory
-                this.Next(runes)
+                this.Next(convertToMemory exactMatch)
 
             member this.Next (exactMatch:ReadOnlyMemory<Rune>) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
                 this.Assertions()

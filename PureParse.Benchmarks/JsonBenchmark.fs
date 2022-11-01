@@ -11,7 +11,7 @@ open BenchmarkDotNet.Diagnostics.Windows.Configs;
 [<CategoriesColumn>]
 [<NativeMemoryProfiler>]
 [<MemoryDiagnoser>]
-[<AnyCategoriesFilter("Number")>]
+//[<AnyCategoriesFilter("Number")>]
 type JsonBenchmark () =
     // [<GlobalSetup>]
     // member self.GlobalSetup() =

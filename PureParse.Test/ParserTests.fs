@@ -8,34 +8,41 @@ open Xunit
 module ParserTests = begin
         
         [<Fact>]
-        let ``Test the bind function`` () =
-            let p:Parser<unit, char> = 
-                fun stream -> 
-                    Success (stream, '1')
-            let t:Transform<unit, char, int> = 
-                fun c stream -> 
-                    Success(stream, string c |> int)
-            let stream = TextStream.Create((), "1")
-            let f = bind p t stream
-            match f with
-            | Success (_, i) ->
-                Assert.Equal(1, i)
-            | Failure (_) ->
-                failwith "Expecting Success"
-            let f = (p >>= t) stream
-            match f with
-            | Success (_, i) ->
-                Assert.Equal(1, i)
-            | Failure (_) ->
-                failwith "Expecting Success"
+        let ``bind() is a success`` () =
+            let test x = 
+                let p:Parser<unit, char> = fun stream -> Success (stream, '1')
+                let t:Transform<unit, char, int> = fun c stream -> Success(stream, string c |> int)
+                let stream = TextStream.Create((), "1")
+                let f = x p t stream
+                match f with
+                | Success (_, i) -> Assert.Equal(1, i)
+                | Failure (_) -> failwith "Expecting Success"
+            test bind
+            test (>>=)
 
         [<Fact>]
-        let ``Test the result function`` () = 
+        let ``bind() fails to apply t when p is a failure.`` () =
+            let test x = 
+                let p:Parser<unit, char> = fun stream -> Failure (stream)
+                let t:Transform<unit, char, int> = fun c stream -> Success(stream, string c |> int)
+                let stream = TextStream.Create((), "1")
+                let f = x p t stream
+                match f with
+                | Failure (_) -> ()
+                | Success (_, _) -> failwith "Expecting Failure"
+            test bind
+            test (>>=)
+            
+        [<Theory>]
+        [<InlineData(1)>]
+        [<InlineData(2)>]
+        [<InlineData(3)>]
+        [<InlineData("a")>]
+        let ``Test the result function`` x = 
             let stream = TextStream.Create((), "1")
-            match result<unit, int> 1 stream with
-            | Success (_, 1) -> ()
-            | _ ->
-                failwith "Expecting Success"
+            match result x stream with
+            | Success (_, x) -> ()
+            | _ -> failwith "Expecting Success"
 
         [<Fact>]
         let ``Test the map parser`` () =

@@ -197,10 +197,10 @@ module PLisp =
         | c::cs -> int64(digitToInt (toChar c)) * (pown b cs.Length) + parseIntegerRunesWithBase b cs
 
     let private parseDigit<'TState> : Parser<'TState, Rune> = 
-        charRange '0' '9'
+        runeRange (Rune '0') (Rune '9')
 
     let private parseNonZeroDigit<'TState> : Parser<'TState, Rune> = 
-        charRange '1' '9'
+        runeRange (Rune '1') (Rune '9')
 
     let private parseDigits<'TState> : Parser<'TState, List<Rune>> = 
         parseList parseDigit (Many 1)
@@ -363,7 +363,7 @@ module PLisp =
             return PList values
         }
 
-    let private pValue = choose [  pNumber; pBool <|> pName; pString; pList; ] 
+    let private pValue = choose [  pNumber; pBool <|> pName; pString; pList;  ] 
 
     let parseText text = 
         match tryRun pList text () with
