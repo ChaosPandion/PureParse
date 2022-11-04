@@ -67,41 +67,12 @@ let z =
 let wordsWithPrefix = z |> Seq.collect (fun (x,y) -> y)
 let wordsWithoutPrefix = words |> Seq.except wordsWithPrefix
 *)
-open System
-let x =
-    """auto
-    break
-    case
-    char		
-    const
-    continue
-    default	
-    double
-    do	
-    else
-    enum
-    extern		
-    float
-    for
-    goto
-    if		
-    int
-    long
-    register
-    return
-    short
-    signed
-    sizeof
-    static		
-    struct
-    switch
-    typedef
-    union		
-    unsigned
-    void
-    volatile
-    while""".Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries) |> Seq.map (fun s -> s.Trim()) |> Enumerable.ToList
 
+let y = 
+    Seq.init (700000) (fun i -> $"""{i}{if i < 699999 then "," else ""}""") 
+    |> Seq.fold (fun (sb:System.Text.StringBuilder) s -> sb.Append(s)) (System.Text.StringBuilder())
+let s = "[" + y.ToString()  + "]"
+let x = Json.parseText s
 
 System.Console.ReadKey(true) 
 |> ignore

@@ -373,6 +373,34 @@ module ParserTests = begin
             | Success (_, _) when not shouldFail -> ()
             | Failure (_) when shouldFail -> ()
             | _ -> failwith "Error"
+            
+        [<Fact>]
+        let ``parseEnd success on empty input`` () =
+            match tryRun (parseEnd ()) "" () with
+            | RunSuccess (_, _, _) -> ()
+            | RunFailure (_, _, _) -> failwith "Error"
 
+        [<Fact>]
+        let ``parseEnd success at the end of parser`` () =
+            let p = parse {
+                do! skipChar 'A'
+                do! skipChar 'B'
+                do! skipChar 'C'
+                do! parseEnd ()
+            }
+            match tryRun p "ABC" () with
+            | RunSuccess (_, _, _) -> ()
+            | RunFailure (_, _, _) -> failwith "Error"
+
+        [<Fact>]
+        let ``parseEnd failure when there is more input`` () =
+            let p = parse {
+                do! skipChar 'A'
+                do! skipChar 'B'
+                do! parseEnd ()
+            }
+            match tryRun p "ABC" () with
+            | RunSuccess (_, _, _) -> failwith "Error"
+            | RunFailure (_, _, _) -> ()
     end
 
