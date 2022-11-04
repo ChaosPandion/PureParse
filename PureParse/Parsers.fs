@@ -277,7 +277,11 @@ module Parsers =
             | Failure (stream) ->  
                 let ev = ExitProductionFailure(stream.CreateEventData(name))  
                 stream.ReportEvent ev
-                Failure(stream)     
+                Failure(stream) 
+
+    /// This parser is a success when the stream is complete.            
+    let parseEnd<'TState> () : Parser<'TState, unit> =
+        fun stream -> if stream.IsComplete then Success (stream, ()) else Failure (stream)
 
     let (>>=) = bind
     let (||>) = map

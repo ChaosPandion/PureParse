@@ -151,13 +151,7 @@ module TextParserTests =
             match tryRun (parseAnyOf (RuneCharArray ("ab" |> Seq.toArray))) "a" () with
             | RunSuccess (_, Rune 'a', _) -> ()
             | _ -> failwith "Unknown Result"
-
-        [<Fact>]
-        let ``parseKeywords finds the correct keyword`` () =    
-            match tryRun (parseKeywords [ "aaa"; "bbb"; "ccc" ]) "ccc" () with
-            | RunSuccess (_, "ccc", _) -> ()
-            | _ -> failwith "Unknown Result"
-            
+                        
         [<Theory>]
         [<InlineData("0", 0)>]
         [<InlineData("2", 2)>]
@@ -167,4 +161,109 @@ module TextParserTests =
             match tryRun parseInt32 text () with
             | RunSuccess (_, expect, _) -> ()
             | _ -> failwithf "Unknown Result"
+
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString matches the longest word`` () = 
+            let p = parseAnyString<unit> [ "test"; "testing" ]
+            match tryRun p "testing" () with
+            | RunSuccess (_, "testing", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString matches one word`` () = 
+            let p = parseAnyString<unit> [ "test" ]
+            match tryRun p "test" () with
+            | RunSuccess (_, "test", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString fails to find a match`` () = 
+            let p = parseAnyString<unit> [ "test"; "testing" ]
+            match tryRun p "te" () with
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | RunFailure(_, _, _) -> ()
+            
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString matches the correct word`` () =  
+            let words = [ "true"; "false"; "null"; "nullish"; "nullite"; "nullate"; "trukish"; "then"; "thenling" ]
+            let p = parseAnyString<unit> words
+            match tryRun p "nullate" () with
+            | RunSuccess (_, "nullate", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+            match tryRun p "trukish" () with
+            | RunSuccess (_, "trukish", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+            match tryRun p "true" () with
+            | RunSuccess (_, "true", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+            match tryRun p "null" () with
+            | RunSuccess (_, "null", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString matches the correct word when they all start with the same prefix`` () =  
+            let words = [ "t"; "ta"; "tb"; "tc"; "td"; "te"; "tf"; "tg"; "th"; "ti"; ]
+            let p = parseAnyString<unit> words
+            match tryRun p "ti" () with
+            | RunSuccess (_, "ti", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString matches when there is not prefix`` () =  
+            let words = [ "AAA"; "BBB"; "CCC"; "DDD"; "EEE"; "FFF"; "GGG"; "HHH"; "III"; ]
+            let p = parseAnyString<unit> words
+            match tryRun p "FFF" () with
+            | RunSuccess (_, "FFF", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString matches when there is only one prefix`` () =  
+            let words = [ "AAA"; "AAAA"; "BBB"; "CCC"; "DDD"; "EEE"; "FFF"; "GGG"; "HHH"; "III"; ]
+            let p = parseAnyString<unit> words
+            match tryRun p "FFF" () with
+            | RunSuccess (_, "FFF", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
+
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString fails when the list has duplicates`` () =  
+            Assert.ThrowsAny(fun () -> parseAnyString<unit> [ "AAA"; "AAA"; ] |> ignore) |> ignore
+
+        [<Fact>]
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString fails when the list is empty`` () =  
+            Assert.ThrowsAny(fun () -> parseAnyString<unit> [ ] |> ignore) |> ignore
+
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString fails when the list has an empty string`` () =  
+            Assert.ThrowsAny(fun () -> parseAnyString<unit> [ "AAA"; "" ] |> ignore) |> ignore
+
+        [<Trait("Method", "parseAnyString")>]
+        let ``parseAnyString fails when the list has a null string`` () =  
+            Assert.ThrowsAny(fun () -> parseAnyString<unit> [ "AAA"; null ] |> ignore) |> ignore
+            
+        [<Fact>]
+        let ``parseCharString creates an entire string given a simple parser.`` () = 
+            let p = parseRune (Rune 'A')
+            let p = parseCharString p
+            match tryRun p "AAAAAAAAAAAAAAA" () with
+            | RunSuccess (_, "AAAAAAAAAAAAAAA", _) -> ()
+            | RunSuccess (_, a, _) -> failwith $"Unknown Result: {a}"
+            | _ -> failwith "Unknown Result"
     end

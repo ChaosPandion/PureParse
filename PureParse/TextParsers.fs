@@ -52,10 +52,9 @@ module TextParsers =
     let parseString<'TState> (s:string) : Parser<'TState, string> =  
         if String.IsNullOrEmpty s then
             invalidArg (nameof s) "Must be a non-empty string."
-        let count = s.Length
         fun (stream:TextStream<'TState>) ->     
-            match stream.Next(count) with
-            | ValueSome(Runes s, ns) -> Success(ns, s)
+            match stream.Next(s) with
+            | ValueSome(_, ns) -> Success(ns, s)
             | _ ->
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting --> '{s}'")))
                 Failure(stream)
@@ -69,17 +68,7 @@ module TextParsers =
                 Success(stream, sb.ToString())
             | ValueNone ->
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting --> white space.")))
-                Failure(stream)
-
-    //let skipRune<'TState> (r:Rune) : Parser<'TState, unit> = 
-    //    (skip (parseRune r)) <??> ("skipRune", $"Failed to skip Rune {r}")
-    //let skipChar<'TState> (c:char) : Parser<'TState, unit> = 
-    //    (skip (parseChar c)) <??> ("skipChar", $"Failed to skip Char {c}")
-    //let skipString<'TState> (s:string) : Parser<'TState, unit> = 
-    //    (skip (parseString s)) <??> ("skipChar", $"Failed to skip String '{s}'")          
-    //let skipWhiteSpace<'TState> () : Parser<'TState, unit> = 
-    //    (skip (parseWhiteSpace ())) <??> ("skipWhiteSpace", "Failed to skip white space") 
-    
+                Failure(stream)                 
     
     let toStringMessage (x:obj) : string =
         let charMap c  =
@@ -196,17 +185,61 @@ module TextParsers =
             then Success (nextStream, sb.ToString())
             else
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting provided string")))
-                Failure(stream)            
-              
-    let parseKeywords<'TState> (keywords:string list) : Parser<'TState, string>  =
-        if keywords.IsEmpty then
-            failwith "No keywords provided."
-        if keywords |> Seq.exists (String.IsNullOrEmpty) then
-            failwith "None of the keywords can be null or empty."
-        let description = String.Join (",", keywords)
-        let parsers = keywords |> Seq.map parseString<'TState> |> Seq.toList
-        (choose parsers) <??> ("keywords", description)
+                Failure(stream)      
 
+    /// Parse the longest word within the provided list.
+    let parseAnyString<'TState> (words:string list) : Parser<'TState, string> =
+        if words.IsEmpty then
+            failwith "No words provided."
+        if words |> Seq.exists (String.IsNullOrEmpty) then
+            failwith "None of the words can be null or empty."
+        if (words |> Seq.distinct |> Seq.length) < (words |> List.length) then
+            failwith $"""The provided list of words contains duplicates: {String.Join (",", words)}"""
+        let prefixGroups = 
+            seq {
+                for x in words do
+                    for y in words do
+                        let mutable i = 0
+                        while i < x.Length && i < y.Length && x[i] = y[i] do 
+                            i <- i + 1
+                        if i > 0 then
+                            yield y, x.Substring(0, i)}
+            |> Seq.groupBy (fun (_, prefix) -> prefix)
+            |> Seq.map (fun (prefix, pairs) -> 
+                            prefix, pairs |> Seq.sortByDescending (fun (word, _) -> word.Length) |> Seq.toList)
+            |> Seq.filter (fun (_, pairs) -> pairs.Length > 1)
+            |> Seq.map (fun (prefix, pairs) ->  // Take the word from the pair
+                            prefix, pairs |> Seq.distinct |> Seq.map fst |> List.ofSeq)
+            |> Seq.sortByDescending (fun (prefix, _) -> prefix.Length)
+            |> List.ofSeq
+        let wordsWithPrefix = prefixGroups |> Seq.collect (fun (_, words) -> words)
+        let wordsWithoutPrefix = words |> Seq.except wordsWithPrefix
+        let test (prefix:string) (keywordsWithPrefix:string list) =
+            fun (stream:TextStream<_>) -> 
+                match stream.Peek(prefix) with
+                | ValueSome (_) ->
+                    keywordsWithPrefix 
+                    |> Seq.map (
+                        fun s -> 
+                            match stream.Next(s) with 
+                            | ValueSome (_, stream) -> Success (stream, s) 
+                            | _ -> Failure (stream))
+                    |> Seq.filter (
+                        fun x -> 
+                            match x with 
+                            | Success (_, _) -> true 
+                            | _ -> false)
+                    |> Seq.tryHead
+                    |> Option.defaultValue (Failure(stream))
+                | ValueNone -> 
+                    Failure (stream)
+        let info = ("words", $"""Expected one of the following: {String.Join (",", words)}""")
+        let nonPrefixParser = choose (wordsWithoutPrefix |> Seq.map parseString<'TState> |> Seq.toList)
+        if prefixGroups.IsEmpty then
+            nonPrefixParser <??> info
+        else
+            let prefixParser = prefixGroups |> Seq.map (fun (x, y) -> test x y) |> Seq.reduce (<|>)
+            (prefixParser <|> nonPrefixParser) <??> info
 
     let private digitToInt = function
         | x when x >= '0' && x <= '9' -> int x - int '0'

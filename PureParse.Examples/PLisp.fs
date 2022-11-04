@@ -178,7 +178,7 @@ module PLisp =
     let booleanKeywords = ["true";"false"]
     let pBool:Parser<unit,PValue> = 
         parse {
-            let! t = parseKeywords booleanKeywords
+            let! t = parseAnyString booleanKeywords
             return PBool (t = "true")
         } <??> ("Parse Boolean", "Expecting true|false")
 
