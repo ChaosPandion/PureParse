@@ -8,16 +8,15 @@ open System.IO
 open System.Linq
 open System.Diagnostics
 
-(*
+
 let accept tree = 
 
-    let html = EventTree.createHtml tree
-    System.IO.File.WriteAllText ("C:/Users/Matthew/Desktop/result.html", html)
+    EventTree.writeHtml tree ""
 
     ()
 
-let json = " [ 1, 2, 3, 4, [ true, false, null, [ 1, 2, 3, 4, 5, 6, 8, \"\\uaa1\"  ] ] ] "
-//let json = System.IO.File.ReadAllText ("C:/Users/Matthew/Desktop/turkish.json")
+//let json = " [ 1, 2, 3, 4, [ true, false, null, [ 1, 2, 3, 4, 5, 6, 8, \"\\uaa1\"  ] ] ] "
+let json = System.IO.File.ReadAllText ("")
 match tryRun Json.parser json () with
 | RunSuccess(state, data, tree) ->
     accept tree
@@ -32,7 +31,7 @@ match tryRun Json.parser json () with
     printfn "Failure"
     System.Console.ReadLine() 
     |> ignore
-*)
+
 
 (*
 let words = [ "true"; "false"; "null"; "nullish"; "nullite"; "nullate"; "trukish"; "then"; "thenling" ]
@@ -68,11 +67,13 @@ let wordsWithPrefix = z |> Seq.collect (fun (x,y) -> y)
 let wordsWithoutPrefix = words |> Seq.except wordsWithPrefix
 *)
 
+(*
 let y = 
     Seq.init (700000) (fun i -> $"""{i}{if i < 699999 then "," else ""}""") 
     |> Seq.fold (fun (sb:System.Text.StringBuilder) s -> sb.Append(s)) (System.Text.StringBuilder())
 let s = "[" + y.ToString()  + "]"
 let x = Json.parseText s
+*)
 
 System.Console.ReadKey(true) 
 |> ignore

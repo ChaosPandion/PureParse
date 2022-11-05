@@ -20,6 +20,12 @@ type D<'TState, 'TData> = unit -> M<'TState, 'TData>
     
 /// Monad Delay
 type Delayed<'TState, 'TData> = unit -> M<'TState, 'TData>
+
+/// When the try with pattern is applied
+type TryWith<'TState, 'TData> = exn -> Parser<'TState, 'TData>
+
+/// When the try finally pattern is applied
+type TryFinally = unit -> unit
     
 /// The bind signature of the parser monad
 type Bind<'TState, 'TData1, 'TData2> = 

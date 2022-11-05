@@ -283,6 +283,14 @@ module Parsers =
     let parseEnd<'TState> () : Parser<'TState, unit> =
         fun stream -> if stream.IsComplete then Success (stream, ()) else Failure (stream)
 
+    /// This parser will evaluate the provided parser and return the result but will not move the stream forward.
+    let lookAhead<'TState, 'TData> (parser:Parser<'TState, 'TData>) : Parser<'TState, 'TData> =
+        fun stream ->
+            match parser stream with
+            | Success (_, data) -> Success (stream, data)
+            | Failure (_) -> Failure (stream)
+
+
     let (>>=) = bind
     let (||>) = map
     let (<-|) = sequenceLeft

@@ -12,10 +12,10 @@ module Parse =
         member _.Bind (p:Parser<_, _>, f:Transform<_, _, _>):Parser<_, _> = 
             fun stream -> bind p f stream
 
-        member _.Return (value):Parser<_, _> = 
+        member _.Return (value) : Parser<_, _> = 
             fun stream -> result value stream
 
-        member _.Zero ():Parser<_, _> = 
+        member _.Zero () : Parser<_, _> = 
             fun stream -> result () stream
 
         member _.ReturnFrom (p:Parser<_, _>):Parser<_, _> = 
@@ -23,6 +23,18 @@ module Parse =
 
         member _.Delay (delayed:Delayed<_, _>) : Parser<_, _> = 
             fun stream -> delayed () stream
+
+        member _.TryWith (p:Parser<_, _>, onWith:TryWith<_, _>) : Parser<_, _> =
+            fun stream -> 
+                try p stream
+                with ex ->
+                    stream.ReportEvent(ParseFailure(stream.CreateEventData("Failure", "An exception occurred.", ex)))
+                    onWith ex stream
+
+        member _.TryFinally (p:Parser<_, _>, onFinally:TryFinally) : Parser<_, _> =
+            fun stream -> 
+                try p stream
+                finally onFinally ()
 
         member _.Run (parser:Parser<_, _>) : Parser<_, _> = 
             fun stream -> parser stream

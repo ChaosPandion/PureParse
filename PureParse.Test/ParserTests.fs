@@ -6,6 +6,38 @@ open PureParse
 open Xunit
 
 module ParserTests = begin
+    
+        [<Fact>]
+        let ``The try pattern allows you to continue`` () =
+            let mutable m = ""
+            let p:Parser<unit, int> = 
+                parse {
+                    try 
+                        failwith "test"
+                        return 1
+                    with 
+                    | ex -> 
+                        m <- ex.ToString()
+                        return 2
+                }
+            match tryRun p "" () with
+            | RunSuccess (_, 2, _) ->
+                Assert.False(String.IsNullOrEmpty m)
+            | _ -> failwith "Expecting Success"
+
+        [<Fact>]
+        let ``The try finally pattern allows you to continue`` () =
+            let mutable f = false
+            let p:Parser<unit, int> = 
+                parse {
+                    try 
+                        return 1
+                    finally 
+                        f <- true
+                }
+            match tryRun p "" () with
+            | RunSuccess (_, 1, _) when f -> ()
+            | _ -> failwith "Expecting Success"
         
         [<Fact>]
         let ``bind() is a success`` () =
@@ -400,6 +432,43 @@ module ParserTests = begin
                 do! parseEnd ()
             }
             match tryRun p "ABC" () with
+            | RunSuccess (_, _, _) -> failwith "Error"
+            | RunFailure (_, _, _) -> ()
+
+
+        [<Fact>]
+        let ``lookAhead allows you to look for productions ahead of the current production.`` () =
+            let p = parse {
+                do! skip <| parseString "AAA"
+                let! mode = 
+                    lookAhead <| 
+                        parse {
+                            do! skip (satisfy Rune.IsLetter)
+                            do! skip (satisfy Rune.IsLetter)
+                            do! skip (satisfy Rune.IsLetter)
+                            return! parseInt32
+                        }
+                match mode with
+                | 1 ->
+                    do! skipChar 'A'
+                    do! skipChar 'A'
+                    do! skipChar 'A'
+                    return false
+                | 2 ->
+                    do! skipChar 'B'
+                    do! skipChar 'B'
+                    do! skipChar 'B'
+                    return true
+                | _ -> 
+                    return! failWithMessage ""
+            }
+            match tryRun p "AAAAAA1" () with
+            | RunSuccess (_, false, _) -> ()
+            | _-> failwith "Error"
+            match tryRun p "AAABBB2" () with
+            | RunSuccess (_, true, _) -> ()
+            | _-> failwith "Error"
+            match tryRun p "AAABBB1" () with
             | RunSuccess (_, _, _) -> failwith "Error"
             | RunFailure (_, _, _) -> ()
     end
