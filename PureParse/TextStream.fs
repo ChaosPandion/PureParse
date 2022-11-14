@@ -67,21 +67,33 @@ module TextStream =
             static let errorMessageDefault = ""
 
             let getCount range remaining =
-                match range with
-                | One -> 1
+                match range with                
+                | Exact (Bounded count) when count < 0 -> 
+                    raise <| ArgumentOutOfRangeException(nameof(range), "Must be at least 1.")
                 | Exact (Bounded count) -> count
-                | Between (Bounded lower, Bounded upper) ->  max lower (min upper remaining)
-                | Between (Unbounded, Bounded upper) ->  min upper remaining
-                | Between (Bounded lower, Unbounded) ->  max lower remaining
-                | Between (Unbounded, Unbounded) | Exact Unbounded | Remaining ->  remaining
+
+                | Between (Bounded(lower), Unbounded) when lower < 0 ->
+                    raise <| ArgumentOutOfRangeException(nameof(range), "The lower bound must be at least 1.")
+                | Between (Bounded(lower), Unbounded) -> max lower remaining
+
+                | Between (Unbounded, Bounded(upper)) when upper < 0 ->
+                    raise <| ArgumentOutOfRangeException(nameof(range), "The upper bound must be at least 1.")
+                | Between (Unbounded, Bounded(upper)) -> min upper remaining
+
+                | Between (Bounded(lower), Bounded(upper)) when lower < 0 || upper < 0 ->
+                    raise <| ArgumentOutOfRangeException(nameof(range), "The bounds must be at least 1.")
+                | Between (Bounded(lower), Bounded(upper)) -> max lower (min upper remaining)
+                
+                | Exact Unbounded -> remaining
+                | Between (Unbounded, Unbounded) -> remaining
+                | Remaining -> remaining
 
             let findLastIndex (predicate:(Rune -> bool)) =
                 let span = memory.Slice(index).Span
                 let mutable i = 0
-                while i < span.Length && predicate(span[i]) do 
-                    i <- i + 1
-                    if i = span.Length - 1 then
-                        i <- span.Length
+                while i < span.Length && 
+                        predicate(span[i]) do 
+                            i <- i + 1
                 i
 
             let calculateLineAndColumn (m:ReadOnlyMemory<Rune>) = 
@@ -159,7 +171,9 @@ module TextStream =
                     ValueNone
 
             member this.Peek (count:int) : ValueOption<ReadOnlyMemory<Rune>> = 
-                this.Peek (Exact(Bounded count))  
+                if count <= 0 then 
+                    raise <| ArgumentOutOfRangeException(nameof(count), "Must be at least 1.")
+                this.Peek (Exact (Bounded count))  
 
             member this.Peek (range:Range<int>) : ValueOption<ReadOnlyMemory<Rune>> =
                 let count = getCount range this.Remaining
@@ -202,7 +216,6 @@ module TextStream =
                     else
                         ValueSome(data)  
 
-
             member _.Next () : ValueOption<Rune * TextStream<'TState>> =
                 if index < memory.Length then 
                     let r = memory.Slice(index, 1).Span[0]
@@ -212,7 +225,9 @@ module TextStream =
                     ValueNone
 
             member this.Next (count:int) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> = 
-                this.Next (Exact(Bounded count))  
+                if count <= 0 then 
+                    raise <| ArgumentOutOfRangeException(nameof(count), "Must be at least 1.")
+                this.Next (Exact (Bounded count)) 
 
             member this.Next (range:Range<int>) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
                 let count = getCount range this.Remaining
@@ -257,8 +272,77 @@ module TextStream =
                         ValueNone
                     else
                         let l, c = calculateLineAndColumn data
-                        ValueSome(data, TextStream<'TState>(state, memory, eventChannel, eventTreeTask, index + exactMatch.Length, l, c))                        
+                        ValueSome(data, TextStream<'TState>(state, memory, eventChannel, eventTreeTask, index + exactMatch.Length, l, c))
 
-    
+
+            interface ITextStream<'TState, Rune> with
+
+                member this.State = 
+                    (this :> ITextStream<'TState, Rune>).State
+
+                member this.Index = 
+                    (this :> ITextStream<'TState, Rune>).Index
+
+                member this.Line = 
+                    (this :> ITextStream<'TState, Rune>).Line
+
+                member this.Column = 
+                    (this :> ITextStream<'TState, Rune>).Column
+
+                member this.Remaining = 
+                    (this :> ITextStream<'TState, Rune>).Remaining
+
+                member this.IsComplete = 
+                    (this :> ITextStream<'TState, Rune>).IsComplete
+
+                member this.Value = 
+                    (this :> ITextStream<'TState, Rune>).Value
+            
+                member this.SetState (nextState: 'TState) = 
+                    (this :> ITextStream<'TState, Rune>).SetState nextState
+
+                member this.TransformState (transform: ('TState -> 'TState))  = 
+                    (this :> ITextStream<'TState, Rune>).TransformState transform
+
+                member this.Peek () = 
+                    (this :> ITextStream<'TState, Rune>).Peek ()
+
+                member this.Peek (count:int) = 
+                    (this :> ITextStream<'TState, Rune>).Peek(count)
+
+                member this.Peek (range : Range<int>) = 
+                    (this :> ITextStream<'TState, Rune>).Peek range
+
+                member this.Peek (set : Set<Rune>) = 
+                    (this :> ITextStream<'TState, Rune>).Peek set
+
+                member this.Peek (predicate : (Rune -> bool)) = 
+                    (this :> ITextStream<'TState, Rune>).Peek predicate
+
+                member this.Peek (exactMatch : string) = 
+                    (this :> ITextStream<'TState, Rune>).Peek exactMatch
+
+                member this.Peek (exactMatch : ReadOnlyMemory<Rune>) = 
+                    (this :> ITextStream<'TState, Rune>).Peek exactMatch
+                    
+                member this.Next () =  
+                    (this :> ITextStream<'TState, Rune>).Next()
+
+                member this.Next (count:int) = 
+                    (this :> ITextStream<'TState, Rune>).Next(count)
+
+                member this.Next (range : Range<int>) = 
+                    (this :> ITextStream<'TState, Rune>).Next(range)
+
+                member this.Next (set : Set<Rune>) = 
+                    (this :> ITextStream<'TState, Rune>).Next(set)
+
+                member this.Next (predicate : (Rune -> bool)) = 
+                    (this :> ITextStream<'TState, Rune>).Next(predicate)
+
+                member this.Next (exactMatch : string) = 
+                    (this :> ITextStream<'TState, Rune>).Next(exactMatch)
+
+                member this.Next (exactMatch : ReadOnlyMemory<Rune>) = 
+                    (this :> ITextStream<'TState, Rune>).Next(exactMatch)
     end
-

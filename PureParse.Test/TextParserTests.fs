@@ -158,8 +158,8 @@ module TextParserTests =
         [<InlineData("200", 200)>]
         [<InlineData("1200", 1200)>]
         let ``parseInt32`` text expect =  
-            match tryRun parseInt32 text () with
-            | RunSuccess (_, expect, _) -> ()
+            match tryRun (parseInt32 ()) text () with
+            | RunSuccess (_, e, _) when expect = e -> ()
             | _ -> failwithf "Unknown Result"
 
         [<Fact>]

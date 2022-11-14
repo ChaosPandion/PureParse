@@ -53,6 +53,20 @@ module ParserTests = begin
             test (>>=)
 
         [<Fact>]
+        let ``bind() over multiple parsers results in success`` () =
+            let p1:Parser<unit, char> = parseChar '1'
+            let p2:Parser<unit, char> = parseChar '2'
+            let stream = TextStream.Create((), "12")
+            let f = 
+                p1 >>= fun v1 -> 
+                    p2 >>= fun v2 -> 
+                        fun stream -> 
+                            Success (stream, (v1, v2))
+            match f stream with
+            | Success (_, ('1', '2')) -> ()
+            | _ -> failwith "Expecting Success"
+
+        [<Fact>]
         let ``bind() fails to apply t when p is a failure.`` () =
             let test x = 
                 let p:Parser<unit, char> = fun stream -> Failure (stream)
@@ -73,7 +87,7 @@ module ParserTests = begin
         let ``Test the result function`` x = 
             let stream = TextStream.Create((), "1")
             match result x stream with
-            | Success (_, x) -> ()
+            | Success (_, z) when z = x -> ()
             | _ -> failwith "Expecting Success"
 
         [<Fact>]
@@ -446,7 +460,7 @@ module ParserTests = begin
                             do! skip (satisfy Rune.IsLetter)
                             do! skip (satisfy Rune.IsLetter)
                             do! skip (satisfy Rune.IsLetter)
-                            return! parseInt32
+                            return! parseInt32 ()
                         }
                 match mode with
                 | 1 ->

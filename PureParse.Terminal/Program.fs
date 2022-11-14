@@ -9,6 +9,7 @@ open System.Linq
 open System.Diagnostics
 
 
+(*
 let accept tree = 
 
     EventTree.writeHtml tree ""
@@ -33,7 +34,6 @@ match tryRun Json.parser json () with
     |> ignore
 
 
-(*
 let words = [ "true"; "false"; "null"; "nullish"; "nullite"; "nullate"; "trukish"; "then"; "thenling" ]
 let pairs = Seq.allPairs words words |> Seq.toList
 let substrings = 
@@ -74,6 +74,10 @@ let y =
 let s = "[" + y.ToString()  + "]"
 let x = Json.parseText s
 *)
+
+open PureParse.Examples.Arithmetic
+
+let x = evalText "1 + (2 + 3) * 4"
 
 System.Console.ReadKey(true) 
 |> ignore

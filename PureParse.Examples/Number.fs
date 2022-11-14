@@ -188,7 +188,7 @@ module Number =
         parse {
             let! _ = parseAnyOf exponentChar
             let! s = sign
-            let! d = parseInt32
+            let! d = parseInt32 ()
             let signModifier = parseSign s;
             let power = signModifier * (double d)
             let result = 10.0 ** power
@@ -208,7 +208,7 @@ module Number =
     let private parseIntegerPart<'TState> : Parser<'TState, int * double> =
         parse {
             let! sign = optional (parseChar '-' <|> parseChar '+')
-            let! digits = parseInt32
+            let! digits = parseInt32 ()
             let signModifier = parseSign sign
             return digits, signModifier
         }
@@ -224,7 +224,7 @@ module Number =
                 return integer
         }
 
-    let private parseFloat<'TState> : Parser<'TState, double> =        
+    let parseFloat<'TState> : Parser<'TState, double> =        
         parse {
             let! ip, sign = parseIntegerPart  
             let! fp = parseFractionalPart <|> result 0.0

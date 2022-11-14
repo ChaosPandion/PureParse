@@ -15,6 +15,7 @@ module ListParsers =
         | Until of ending:Parser<'TState, unit> * minElements:int
         | Sep of separator:Parser<'TState, unit> * allowTrailingSeparator:bool * minElements:int
         | SepUntil of separator:Parser<'TState, unit> * ending:Parser<'TState, unit> * allowTrailingSeparator:bool *  minElements:int
+        | ExactCount of count:int
         
     /// Evaluate the parser using the provided mode, collecting the results.
     let inline parseList<'TState, 'TData> 
@@ -30,6 +31,33 @@ module ListParsers =
             parseManySep parser separator allowTrailingSeparator minElements
         | SepUntil (separator, ending, allowTrailingSeparator, minElements) -> 
             parseManySepUntil parser separator ending allowTrailingSeparator minElements
+        | ExactCount count -> 
+            parseExactCount parser count
+
+    /// Evaluate the parser collecting the results. The result must have the exact count of elements expected.
+    let parseExactCount<'TState, 'TElement> (parser:Parser<'TState, 'TElement>) (count:int) : Parser<'TState, List<'TElement>> = 
+        fun (stream:TextStream<'TState>) ->
+            let elements = ResizeArray(count)
+            let mutable currentStream = stream
+            let mutable complete = false
+            while not complete do
+                if elements.Count = count then
+                    complete <- true
+                else
+                    match parser currentStream with
+                    | Success (nextStream, element) ->
+                        currentStream <- nextStream
+                        elements.Add element
+                    | Failure (_) ->
+                        complete <- true
+            let incorrectAmountOfElements = elements.Count <> count
+            if incorrectAmountOfElements then
+                if incorrectAmountOfElements then
+                    stream.ReportEvent(ParseFailure(currentStream.CreateErrorEventData("Exact Count", $"Expected {count} elements.")))
+                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Exact Count", $"The list must have exactly {count} elements")))
+                Failure (stream)
+            else
+                Success (currentStream, elements |> Seq.toList)
 
     /// Evaluate the parser collecting the results.
     let parseMany<'TState, 'TElement> 

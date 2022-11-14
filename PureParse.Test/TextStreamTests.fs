@@ -1,11 +1,15 @@
-﻿namespace PureParse.Test
+﻿namespace rec PureParse.Test
+
 
 module TextStreamTests =
 
 
     open System
+    open System.Collections
+    open System.Collections.Generic
     open System.Text
     open Xunit
+    open PureParse
     open PureParse.TextStream
     open PureParse.Runes
 
@@ -21,6 +25,22 @@ module TextStreamTests =
         Assert.Equal(3, ts.Remaining)
         Assert.False(ts.IsComplete)
         Assert.Equal(new Rune('a'), ts.Value.Value)
+
+    [<Fact>]
+    let ``The state of the text stream can be set.`` () =
+        let x = TextStream<state>.Create({ name = "A" }, "")
+        let y = x.SetState { name = "B" }
+        match y.State with
+        | { name = "B" } -> ()
+        | s -> failwith $"The state was not changed: {s}"
+
+    [<Fact>]
+    let ``The state of the text stream can be transformed.`` () =
+        let x = TextStream<state>.Create({ name = "A" }, "")
+        let y = x.TransformState (fun s -> {s with name = s.name + "B" }) 
+        match y.State with
+        | { name = "AB" } -> ()
+        | s -> failwith $"The state was not changed: {s}"
 
     [<Fact>]
     let ``Peek Test`` () =
@@ -52,6 +72,16 @@ module TextStreamTests =
                 | _ -> failwith "Error"
             | _ -> failwith "Error"
         | _ -> failwith "Error"
+    
+    [<Fact>]
+    let ``Surrogate Pair Test`` () =
+        let ts = TextStream<unit>.Create((), "\uD83D\uDE03")
+        match ts.Next(1) with
+        | ValueSome (RuneString "😃", ts) ->
+            Assert.True(ts.IsComplete)
+        | ValueSome (RuneString s, _) -> 
+            failwith $"The value '{s}' was not expected."
+        | ValueNone -> failwith "Error"
 
     [<Fact>]
     let ``Basic Test of Rune TextStream With No Custom State`` () =
@@ -255,4 +285,131 @@ module TextStreamTests =
         match stream.Peek runes with 
         | ValueSome (RuneString x) when x = text  -> ()
         | _ -> failwith "Error" 
+        
+    [<Theory>]
+    [<InlineData("12345")>]
+    [<InlineData("12345 ")>]
+    [<InlineData("12345  ")>]
+    [<InlineData("12345\n")>]
+    [<InlineData("12345A")>]
+    [<InlineData("12345AAA")>]
+    [<InlineData("12345AAA\n")>]
+    [<InlineData("12345AAA\n\t")>]
+    let ``Next(predicate) produces the correct result.`` text =
+        let stream = TextStream<unit>.Create((), text)
+        match stream.Next (Rune.IsDigit) with 
+        | ValueSome (RuneString x, stream) -> 
+            Assert.Equal("12345", x)
+            Assert.Equal(5, stream.Index)
+        | ValueNone -> 
+            failwith "Expected the string '12345'." 
 
+    [<Theory>]
+    [<InlineData("12345")>]
+    [<InlineData("12345 ")>]
+    [<InlineData("12345  ")>]
+    [<InlineData("12345\n")>]
+    [<InlineData("12345A")>]
+    [<InlineData("12345AAA")>]
+    [<InlineData("12345AAA\n")>]
+    [<InlineData("12345AAA\n\t")>]
+    let ``Peek(predicate) produces the correct result.`` text =
+        let stream = TextStream<unit>.Create((), text)
+        match stream.Peek (Rune.IsDigit) with 
+        | ValueSome (RuneString x) -> 
+            Assert.Equal("12345", x)
+            Assert.Equal(0, stream.Index)
+        | ValueNone -> 
+            failwith "Expected the string '12345'." 
+
+ 
+
+    [<Theory>]
+    [<ClassData(typedefof<RangeCheckData>)>]
+    let ``Passing in Range produces the correct results.`` mode (resultMode:ResultMode) check (range:Range<int>) text result =
+        let stream = TextStream<unit>.Create((), text)
+        match mode with
+        | Next ->
+            match resultMode with
+            | StreamRead ->
+                match stream.Next range with 
+                | ValueSome (RuneString s, stream) ->
+                    Assert.Equal(result, s)  
+                    match check with
+                    | NoCheck -> ()
+                    | StreamIsComplete complete ->
+                        Assert.Equal(complete, stream.IsComplete)
+                    | ReachedIndex index ->
+                        Assert.Equal(index, stream.Index)         
+                | ValueNone -> failwith $"Failed to read from stream."
+            | StreamNotRead ->
+                match stream.Next range with 
+                | ValueNone -> ()
+                | _ -> failwith $"Not supposed to read from stream."                
+        | Peek ->
+            match resultMode with
+            | StreamRead ->
+                match stream.Peek range with 
+                | ValueSome (RuneString s) ->
+                    Assert.Equal(result, s)  
+                    match check with
+                    | NoCheck -> ()
+                    | StreamIsComplete complete ->
+                        Assert.Equal(complete, stream.IsComplete)
+                    | ReachedIndex index ->
+                        Assert.Equal(index, stream.Index)         
+                | ValueNone -> failwith $"Failed to read from stream."
+            | StreamNotRead ->
+                match stream.Peek range with 
+                | ValueNone -> ()
+                | _ -> failwith $"Not supposed to read from stream."  
+
+
+    type CallMode = Peek | Next
+    type StreamCheck = NoCheck | StreamIsComplete of bool | ReachedIndex of int
+    type ResultMode = StreamRead | StreamNotRead
+
+    type RangeCheckData() =
+        interface IEnumerable with
+            member this.GetEnumerator() = (this :> IEnumerable<array<obj>>).GetEnumerator() :> IEnumerator
+        interface IEnumerable<array<obj>> with
+            member this.GetEnumerator() = 
+                let basicString = "11111111111111111111" :> obj
+
+                ([
+                    // Exact match in range
+                    [| Next:>obj;StreamRead;ReachedIndex 1;Exact(Bounded(1)); basicString;"1" |]
+                    [| Next:>obj;StreamRead;ReachedIndex 2;Exact(Bounded(2)); basicString;"11" |]
+                    [| Next:>obj;StreamRead;ReachedIndex 3;Exact(Bounded(3)); basicString;"111" |]
+                    [| Next:>obj;StreamRead;ReachedIndex 4;Exact(Bounded(4)); basicString;"1111" |]
+                    [| Next:>obj;StreamRead;ReachedIndex 5;Exact(Bounded(5)); basicString;"11111" |]
+                    [| Next:>obj;StreamRead;ReachedIndex 6;Exact(Bounded(6)); basicString;"111111" |]
+                    [| Next:>obj;StreamRead;ReachedIndex 7;Exact(Bounded(7)); basicString;"1111111" |]
+                    [| Peek:>obj;StreamRead;ReachedIndex 0;Exact(Bounded(1)); basicString;"1" |]
+                    [| Peek:>obj;StreamRead;ReachedIndex 0;Exact(Bounded(2)); basicString;"11" |]
+                    [| Peek:>obj;StreamRead;ReachedIndex 0;Exact(Bounded(3)); basicString;"111" |]
+                    [| Peek:>obj;StreamRead;ReachedIndex 0;Exact(Bounded(4)); basicString;"1111" |]
+                    [| Peek:>obj;StreamRead;ReachedIndex 0;Exact(Bounded(5)); basicString;"11111" |]
+                    [| Peek:>obj;StreamRead;ReachedIndex 0;Exact(Bounded(6)); basicString;"111111" |]
+                    [| Peek:>obj;StreamRead;ReachedIndex 0;Exact(Bounded(7)); basicString;"1111111" |]
+                    
+                    // Exact match not in range
+                    [| (Next:>obj); (StreamNotRead:>obj); NoCheck; (Exact(Bounded(21)):>obj); basicString; basicString|]
+                    [| (Next:>obj); (StreamNotRead:>obj); NoCheck; (Exact(Bounded(22)):>obj); basicString; basicString|]
+                    [| (Next:>obj); (StreamNotRead:>obj); NoCheck; (Exact(Bounded(23)):>obj); basicString; basicString|]
+                    [| (Peek:>obj); (StreamNotRead:>obj); NoCheck; (Exact(Bounded(21)):>obj); basicString; basicString|]
+                    [| (Peek:>obj); (StreamNotRead:>obj); NoCheck; (Exact(Bounded(22)):>obj); basicString; basicString|]
+                    [| (Peek:>obj); (StreamNotRead:>obj); NoCheck; (Exact(Bounded(23)):>obj); basicString; basicString|]
+
+                    // Read all remaining runes
+                    [|  Next;StreamRead;StreamIsComplete true;Exact(Num<int>.Unbounded);basicString;basicString|]
+                    [|  Next;StreamRead;StreamIsComplete true;Range<int>.Remaining;basicString;basicString|]
+                    [|  Next;StreamRead;StreamIsComplete true;Between(Num<int>.Unbounded, Num<int>.Unbounded);basicString;basicString|]                    
+                    [|  Peek;StreamRead;StreamIsComplete false;Exact(Num<int>.Unbounded);basicString;basicString|]
+                    [|  Peek;StreamRead;StreamIsComplete false;Range<int>.Remaining;basicString;basicString|]
+                    [|  Peek;StreamRead;StreamIsComplete false;Between(Num<int>.Unbounded, Num<int>.Unbounded);basicString;basicString|]
+                    
+                    [|  Next;StreamRead;ReachedIndex 4;Range<int>.Between(Bounded(1),Bounded(5));"1111";"1111"|]
+                    [|  Next;StreamNotRead;NoCheck;Range<int>.Between(Bounded(1),Bounded(5));"";"1111"|]      
+                    [|  Next;StreamRead;StreamIsComplete true;Range<int>.Between(Bounded(1),Unbounded);"1111";"1111"|]                
+                 ] |> List.toSeq).GetEnumerator()

@@ -121,9 +121,9 @@ module TextParsers =
             let nextStream = loop stream 
             if nextStream.Index <> stream.Index
             then Success (nextStream, ())
-            else
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting --> white space.")))
-                Failure(stream)
+            else Success (stream, ()) 
+                //stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("String", $"Expecting --> white space.")))
+                //Failure(stream)
 
 
     let parseRuneBySet<'TState> (set:Set<Rune>) (contains:bool) : Parser<'TState, Rune> =
@@ -241,50 +241,66 @@ module TextParsers =
             let prefixParser = prefixGroups |> Seq.map (fun (x, y) -> test x y) |> Seq.reduce (<|>)
             (prefixParser <|> nonPrefixParser) <??> info
 
-    let private digitToInt = function
-        | x when x >= '0' && x <= '9' -> int x - int '0'
-        | x when x >= 'a' && x <= 'f' -> 10 + int x - int 'a'
-        | x when x >= 'A' && x <= 'F' -> 10 + int x - int 'A'
-        | _ -> failwith ""
-
-    let rec private parseInteger = function
-        | [] -> 0.0
-        | c::cs -> (digitToInt c |> double) * (10.0 ** double cs.Length) + parseInteger cs
-
-    let parseInt32<'TState> : Parser<'TState, int> = 
-        fun (stream:TextStream<'TState>) -> 
-            match stream.Peek (stream.Remaining) with
+    let parseInt32<'TState> () : Parser<'TState, int> =
+        let digitToInt = function
+            | x when x >= '0' && x <= '9' -> int x - int '0'
+            | x when x >= 'a' && x <= 'f' -> 10 + int x - int 'a'
+            | x when x >= 'A' && x <= 'F' -> 10 + int x - int 'A'
+            | x -> failwith $"The char '{x}' is not expected."
+        let rec parseInteger = function
+            | [] -> 0.0
+            | c::cs ->
+                let d = digitToInt c |> double
+                let e = (10.0 ** double cs.Length)
+                d * e + parseInteger cs
+        fun (stream:TextStream<'TState>) ->
+            match stream.Next(Rune.IsDigit) with
             | ValueNone -> 
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Int32", $"No Characters Remaining")))
                 Failure (stream)
-            | ValueSome (rm:ReadOnlyMemory<Rune>) -> 
+            | ValueSome (rm:ReadOnlyMemory<Rune>, stream) -> 
                 let s = rm.Span
-                let mutable e = s.GetEnumerator()
-                let mutable count = 0
-                let mutable complete = false
-                while not complete do
-                    let mutable next = e.MoveNext()
-                    if next then
-                        if isDigit e.Current then
-                            count <- count + 1
-                        else 
-                            complete <- true
-                    else 
-                        complete <- true
-                if count = 0 then
-                    stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Int32", $"No Digits Found")))
-                    Failure (stream)
-                else 
-                    match stream.Next count with
-                    | ValueNone ->
-                        stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Int32", $"Failed to read {count} digits.")))
-                        Failure (stream)
-                    | ValueSome (rm:ReadOnlyMemory<Rune>, stream) ->
-                        let s = rm.Span
-                        let mutable i = 0
-                        for x = 0 to s.Length - 1 do
-                            let c = char (s[x].Value)
-                            let h = (digitToInt c) |> double
-                            let remaining = (s.Length - (x + 1)) |> double
-                            i <- i + int(h * (10.0 ** remaining))
-                        Success (stream, i)
+                let mutable i = 0
+                for x = 0 to s.Length - 1 do
+                    let c = char (s[x].Value)
+                    let h = (digitToInt c) |> double
+                    let remaining = (s.Length - (x + 1)) |> double
+                    i <- i + int(h * (10.0 ** remaining))
+                Success (stream, i)
+
+
+            //match stream.Peek (stream.Remaining) with
+            //| ValueNone -> 
+            //    stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Int32", $"No Characters Remaining")))
+            //    Failure (stream)
+            //| ValueSome (rm:ReadOnlyMemory<Rune>) -> 
+            //    let s = rm.Span
+            //    let mutable e = s.GetEnumerator()
+            //    let mutable count = 0
+            //    let mutable complete = false
+            //    while not complete do
+            //        let mutable next = e.MoveNext()
+            //        if next then
+            //            if isDigit e.Current then
+            //                count <- count + 1
+            //            else 
+            //                complete <- true
+            //        else 
+            //            complete <- true
+            //    if count = 0 then
+            //        stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Int32", $"No Digits Found")))
+            //        Failure (stream)
+            //    else 
+            //        match stream.Next count with
+            //        | ValueNone ->
+            //            stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Int32", $"Failed to read {count} digits.")))
+            //            Failure (stream)
+            //        | ValueSome (rm:ReadOnlyMemory<Rune>, stream) ->
+            //            let s = rm.Span
+            //            let mutable i = 0
+            //            for x = 0 to s.Length - 1 do
+            //                let c = char (s[x].Value)
+            //                let h = (digitToInt c) |> double
+            //                let remaining = (s.Length - (x + 1)) |> double
+            //                i <- i + int(h * (10.0 ** remaining))
+            //            Success (stream, i)

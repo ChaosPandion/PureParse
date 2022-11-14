@@ -132,3 +132,18 @@ module ListParserTests =
         | RunFailure (_, _, _) when not succeed -> ()
         | RunSuccess (_, _, _) when succeed -> ()
         | _ -> failwith "Failed to parse list."
+
+    [<Theory>]
+    [<InlineData("", 0, true)>]
+    [<InlineData("", 1, false)>]
+    [<InlineData("X", 1, true)>]
+    [<InlineData("XX", 2, true)>]
+    [<InlineData("XX", 3, false)>]
+    [<InlineData("XXXXXX", 6, true)>]
+    [<InlineData("XXXXXXXXXXXX", 12, true)>]
+    let ``parseList - ExactCount`` text count succeed =    
+        let p = parseString "X"
+        match tryRun (parseList p (ExactCount count)) text () with
+        | RunFailure (_, _, _) when not succeed -> ()
+        | RunSuccess (_, _, _) when succeed -> ()
+        | _ -> failwith "Failed to parse list."

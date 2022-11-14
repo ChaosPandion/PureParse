@@ -1,15 +1,13 @@
 ﻿namespace PureParse
+open System.Numerics
 
 [<Struct>]
-type Num<'n when 'n : struct> =
+type Num<'n when 'n :> INumber<'n>> =
     | Unbounded
     | Bounded of 'n
 
 [<Struct>]
-type Range<'n when 'n : struct> =
-
-    /// Give exactly one.
-    | One
+type Range<'n when 'n :> INumber<'n>> =
 
     /// Give the exact amount specified
     | Exact of exact: Num<'n>
