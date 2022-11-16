@@ -1,12 +1,12 @@
 ﻿namespace PureParse
 
-open System.Threading.Channels
 open Parsers
 open TextStream
 
 [<AutoOpen>]
 module Parse =
 
+    /// The builder type for computational expressions. IE: parse { ... }
     type ParseBuilder () = 
 
         member _.Bind (p:Parser<_, _>, f:Transform<_, _, _>):Parser<_, _> = 
@@ -41,6 +41,11 @@ module Parse =
 
     let parse = ParseBuilder()
 
+    /// <summary>
+    ///  Attempt to run the provided parser given a string of text and an initial state. 
+    ///  The result type specifies success or failure.
+    /// </summary>
+    /// <exception cref="System.ArgumentNullException">The provided text was null.</exception>
     let tryRun<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) (text:string) (state:'TState) : RunResult<'TState, 'TResult> =
         if text = null then
             nullArg (nameof(text))
@@ -57,8 +62,16 @@ module Parse =
             stream.ReportEvent (ParseComplete(stream.CreateEventData("", "Complete"))) 
             let tree = stream.GetEventTree()     
             RunFailure (stream.State, PureParseException(tree), tree)
-
+            
+    /// <summary>
+    ///  Run the provided parser given a string of text and an initial state. 
+    ///  When a failure occurs a detailed exception is thrown.
+    /// </summary>
+    /// <exception cref="System.ArgumentNullException">The provided text was null.</exception>
+    /// <exception cref="PureParse.PureParseException">The provided parser did not succeed.</exception>
     let run<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) (text:string) (state:'TState) : 'TResult =
+        if text = null then
+            nullArg (nameof(text))
         match tryRun parser text state with
         | RunSuccess (_, data, _) -> data
         | RunFailure (_, error, _) -> raise error

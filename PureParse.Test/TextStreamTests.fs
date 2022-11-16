@@ -3,7 +3,6 @@
 
 module TextStreamTests =
 
-
     open System
     open System.Collections
     open System.Collections.Generic
@@ -72,7 +71,7 @@ module TextStreamTests =
                 | _ -> failwith "Error"
             | _ -> failwith "Error"
         | _ -> failwith "Error"
-    
+
     [<Fact>]
     let ``Surrogate Pair Test`` () =
         let ts = TextStream<unit>.Create((), "\uD83D\uDE03")
@@ -153,7 +152,6 @@ module TextStreamTests =
             | _ -> failwith "Error"  
         | _ -> failwith "Error"  
 
-
     [<Fact>]
     let ``The method Next(set) produces the correct result for a range of Runes.`` () =
         let ts = TextStream<unit>.Create((), "12345\n12345")
@@ -199,7 +197,6 @@ module TextStreamTests =
             Assert.Equal(1, ts.Line)
             Assert.Equal(11, ts.Remaining)   
         | _ -> failwith "Error" 
-
 
     [<Fact>]
     let ``The method Next(predicate) produces the correct result for a range of Runes.`` () =
@@ -247,7 +244,6 @@ module TextStreamTests =
             Assert.Equal(11, ts.Remaining)   
         | _ -> failwith "Error" 
 
-
     [<Theory>]
     [<InlineData("AAAAA")>]
     [<InlineData("BBBBB")>]
@@ -285,7 +281,7 @@ module TextStreamTests =
         match stream.Peek runes with 
         | ValueSome (RuneString x) when x = text  -> ()
         | _ -> failwith "Error" 
-        
+
     [<Theory>]
     [<InlineData("12345")>]
     [<InlineData("12345 ")>]
@@ -320,9 +316,7 @@ module TextStreamTests =
             Assert.Equal("12345", x)
             Assert.Equal(0, stream.Index)
         | ValueNone -> 
-            failwith "Expected the string '12345'." 
-
- 
+            failwith "Expected the string '12345'."  
 
     [<Theory>]
     [<ClassData(typedefof<RangeCheckData>)>]
@@ -362,7 +356,28 @@ module TextStreamTests =
             | StreamNotRead ->
                 match stream.Peek range with 
                 | ValueNone -> ()
-                | _ -> failwith $"Not supposed to read from stream."  
+                | _ -> failwith $"Not supposed to read from stream." 
+                
+    [<Fact>]
+    let ``Peek: Given a set of 26 letters provide a string of the correct length.`` () =
+        let set = (['a'..'z'] @ ['A'..'Z']) |> List.map Rune |> Set.ofList
+        let expect = "AABBccDdeEffffGGG"
+        let stream = TextStream<unit>.Create((), $"{expect}123456")
+        match stream.Peek set with 
+        | ValueSome (RuneString s) -> 
+            Assert.Equal (expect, s)
+        | ValueNone -> failwith "Failed to match using set."
+
+    [<Fact>]
+    let ``Next: Given a set of 26 letters provide a string of the correct length.`` () =
+        let set = (['a'..'z'] @ ['A'..'Z']) |> List.map Rune |> Set.ofList
+        let expect = "AABBccDdeEffffGGG"
+        let stream = TextStream<unit>.Create((), $"{expect}123456")
+        match stream.Next set with 
+        | ValueSome (RuneString s, stream) -> 
+            Assert.Equal (expect, s)
+            Assert.Equal (expect.Length, stream.Index)
+        | ValueNone -> failwith "Failed to match using set."
 
 
     type CallMode = Peek | Next
@@ -409,7 +424,11 @@ module TextStreamTests =
                     [|  Peek;StreamRead;StreamIsComplete false;Range<int>.Remaining;basicString;basicString|]
                     [|  Peek;StreamRead;StreamIsComplete false;Between(Num<int>.Unbounded, Num<int>.Unbounded);basicString;basicString|]
                     
+                    // Read over a specified range.
                     [|  Next;StreamRead;ReachedIndex 4;Range<int>.Between(Bounded(1),Bounded(5));"1111";"1111"|]
                     [|  Next;StreamNotRead;NoCheck;Range<int>.Between(Bounded(1),Bounded(5));"";"1111"|]      
-                    [|  Next;StreamRead;StreamIsComplete true;Range<int>.Between(Bounded(1),Unbounded);"1111";"1111"|]                
+                    [|  Next;StreamRead;StreamIsComplete true;Range<int>.Between(Bounded(1),Unbounded);"1111";"1111"|] 
+                    [|  Peek;StreamRead;ReachedIndex 0;Range<int>.Between(Bounded(1),Bounded(5));"1111";"1111"|]
+                    [|  Peek;StreamNotRead;NoCheck;Range<int>.Between(Bounded(1),Bounded(5));"";"1111"|]      
+                    [|  Peek;StreamRead;ReachedIndex 0;Range<int>.Between(Bounded(1),Unbounded);"1111";"1111"|]                
                  ] |> List.toSeq).GetEnumerator()

@@ -3,6 +3,9 @@
 open System.Threading.Channels
 open System.Threading.Tasks
 
+// Think about rewriting the algorithm for the event tree builder. 
+#nowarn "3511"
+
 [<AutoOpen>]
 module Events =
 
@@ -89,6 +92,7 @@ module Events =
                             failwith "Invalid event sequence"
 
                         let rec build (d:ProductionDataBuilder<'TState>) =
+                            let cs = d.children |> Seq.map build |> Seq.toList
                             match d with
                             | { success = true; enterData = Some enter; exitData = Some exit; children = _ } ->
                                     SucceededProduction { 
@@ -96,7 +100,7 @@ module Events =
                                         exitData = exit
                                         token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
                                         failures = d.failures |> Seq.toList
-                                        children = d.children |> Seq.map build |> Seq.toList
+                                        children = cs
                                     } 
                             | { success = false; enterData = Some enter; exitData = Some exit; children = _ } ->
                                     FailedProduction { 
@@ -104,7 +108,7 @@ module Events =
                                         exitData = exit
                                         token = if d.children.Count > 0 then None else (Some <| text.Substring(enter.index, exit.index - enter.index))
                                         failures = d.failures |> Seq.toList
-                                        children = d.children |> Seq.map build |> Seq.toList
+                                        children = cs
                                     } 
                             | _ -> failwith ""
                         tree <- Some (build current.Value)

@@ -69,23 +69,23 @@ module TextStream =
             let getCount range remaining =
                 match range with                
                 | Exact (Bounded count) when count < 0 -> 
-                    raise <| ArgumentOutOfRangeException(nameof(range), "Must be at least 1.")
+                    raise <| ArgumentOutOfRangeException(nameof(range), "Must be at least 0.")
                 | Exact (Bounded count) -> count
 
                 | Between (Bounded(lower), Unbounded) when lower < 0 ->
-                    raise <| ArgumentOutOfRangeException(nameof(range), "The lower bound must be at least 1.")
+                    raise <| ArgumentOutOfRangeException(nameof(range), "The lower bound must be at least 0.")
                 | Between (Bounded(lower), Unbounded) -> max lower remaining
 
                 | Between (Unbounded, Bounded(upper)) when upper < 0 ->
-                    raise <| ArgumentOutOfRangeException(nameof(range), "The upper bound must be at least 1.")
+                    raise <| ArgumentOutOfRangeException(nameof(range), "The upper bound must be at least 0.")
                 | Between (Unbounded, Bounded(upper)) -> min upper remaining
 
                 | Between (Bounded(lower), Bounded(upper)) when lower < 0 || upper < 0 ->
-                    raise <| ArgumentOutOfRangeException(nameof(range), "The bounds must be at least 1.")
+                    raise <| ArgumentOutOfRangeException(nameof(range), "The bounds must be at least 0.")
                 | Between (Bounded(lower), Bounded(upper)) -> max lower (min upper remaining)
                 
-                | Exact Unbounded -> remaining
-                | Between (Unbounded, Unbounded) -> remaining
+                | Exact Unbounded
+                | Between (Unbounded, Unbounded) 
                 | Remaining -> remaining
 
             let findLastIndex (predicate:(Rune -> bool)) =

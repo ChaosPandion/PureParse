@@ -8,29 +8,32 @@ open PureParse
 module Arithmetic =
     begin
 
-        (*
-            WhiteSpace:
-                SP
-                TB
-                NL
-                CR NL
-            Expression:
-                AdditiveExpression
-                ( AdditiveExpression )
+        (*               
+            NumberExpression:
+                Float  
+            BaseExpression:            
+                ( Expression )
+                NumberExpression
+            SignExpression:
+                BaseExpression
+                + SignExpression
+                - SignExpression  
+            MultiplicativeExpression:
+                SignExpression
+                MultiplicativeExpression * SignExpression
+                MultiplicativeExpression / SignExpression 
             AdditiveExpression:
                 MultiplicativeExpression
                 AdditiveExpression + MultiplicativeExpression
                 AdditiveExpression - MultiplicativeExpression
-            MultiplicativeExpression:
-                NumberExpression
-                MultiplicativeExpression * NumberExpression
-                MultiplicativeExpression / NumberExpression
-            NumberExpression:
-                Integer
+            Expression:
+                AdditiveExpression
         *)
 
         type Arithmetic =
             | Number of double
+            | UnaryPlus of Arithmetic
+            | UnaryMinus of Arithmetic
             | Add of Arithmetic * Arithmetic
             | Subtract of Arithmetic * Arithmetic
             | Multiply of Arithmetic * Arithmetic
@@ -39,91 +42,110 @@ module Arithmetic =
         let rec eval body =
             match body with
             | Number n -> n
-            | Add (Number left, Number right) -> left + right
-            | Add (Number left, right) -> left + eval right
-            | Add (left, Number right) -> eval left + right
+            | UnaryPlus e -> +(eval e)
+            | UnaryMinus e -> -(eval e)
             | Add (left, right) -> eval left +  eval right
-            | Subtract (Number left, Number right) -> left - right
-            | Subtract (Number left, right) -> left - eval right
-            | Subtract (left, Number right) -> eval left - right
             | Subtract (left, right) -> eval left - eval right
-            | Multiply (Number left, Number right) -> left * right
-            | Multiply (Number left, right) -> left * eval right
-            | Multiply (left, Number right) -> eval left * right
             | Multiply (left, right) -> eval left * eval right
-            | Divide (Number left, Number right) -> left / right
-            | Divide (Number left, right) -> left / eval right
-            | Divide (left, Number right) -> eval left / right
             | Divide (left, right) -> eval left / eval right
 
-        let parseNumberExpression () : Parser<unit, Arithmetic> =
+        let middle (_, y, _) = y
+
+        let ws = skipWhiteSpace<unit> ()
+
+        let skipOperator c = 
+            sequence3 ws (parseChar c) ws ||> fun _ -> ()
+            
+        let parsePlusOperator:Parser<unit, char> = 
+            (sequence3 ws (parseChar '+') ws) ||> middle
+
+        let parseMinusOperator:Parser<unit, char> = 
+            (sequence3 ws (parseChar '-') ws) ||> middle
+
+        let parseMultiplyOperator:Parser<unit, char> = 
+            (sequence3 ws (parseChar '*') ws) ||> middle
+
+        let parseDivideOperator:Parser<unit, char> = 
+            (sequence3 ws (parseChar '/') ws) ||> middle
+
+        let parseNumberExpression : Parser<unit, Arithmetic> =
             parse {
                 let! r = PureParse.Examples.Number.parseFloat<unit>
                 return Number r
             }
 
-        let parseMultiplicativeExpression () : Parser<unit, Arithmetic> =
-           parse {
-                let! x = parseMultiplicativeExpression ()
-                do! skipWhiteSpace ()
-                do! skipChar '*'
-                do! skipWhiteSpace ()
-                let! y = parseNumberExpression ()
-                return Multiply (x, y)
-            } <|> parse {
-                let! x = parseMultiplicativeExpression ()
-                do! skipWhiteSpace ()
-                do! skipChar '/'
-                do! skipWhiteSpace ()
-                let! y = parseNumberExpression ()
-                return Divide (x, y)
-            } <|>  parse {
-                return! parseNumberExpression ()
+        let parseBaseExpression : Parser<unit, Arithmetic> =
+            parseNumberExpression
+                <|> parse {
+                    let! _, r, _ = sequence3 (skipOperator '(') parseExpression (skipOperator ')')
+                    return r
+                }
+
+        let rec parseSignExpression (x:voption<Arithmetic>) : Parser<unit, Arithmetic> =
+                parse {
+                    let! op = optional (parsePlusOperator <|> parseMinusOperator) 
+                    match op, x with
+                    | Some '+', z -> 
+                        let! e = parseSignExpression z
+                        return UnaryPlus e
+                    | Some '-', z -> 
+                        let! e = parseSignExpression z
+                        return UnaryMinus e
+                    | _, ValueSome e ->
+                        return e
+                    | _, ValueNone -> 
+                        return! parseBaseExpression
+                }
+
+        let rec parseMultiplicativeExpression (x:voption<Arithmetic>) : Parser<unit, Arithmetic> =
+            parse {
+                let! op = optional (parseMultiplyOperator <|> parseDivideOperator) 
+                match op, x with
+                | Some '*', ValueSome x ->
+                    let! y = parseSignExpression ValueNone
+                    let z = Multiply (x, y)
+                    return! parseMultiplicativeExpression (ValueSome z)
+                | Some '/', ValueSome x ->
+                    let! y = parseSignExpression ValueNone
+                    let z = Divide (x, y)
+                    return! parseMultiplicativeExpression (ValueSome z)
+                | _, ValueNone ->
+                    let! x = parseSignExpression ValueNone
+                    return! parseMultiplicativeExpression (ValueSome x)
+                | _, ValueSome e ->
+                    return e
+            }
+
+        let rec parseAdditiveExpression (x:voption<Arithmetic>) : Parser<unit, Arithmetic> =
+            parse {
+                let! op = optional (parsePlusOperator <|> parseMinusOperator) 
+                match op, x with
+                | Some '+', ValueSome x ->
+                    let! y = parseMultiplicativeExpression ValueNone
+                    let z = Add (x, y)
+                    return! parseAdditiveExpression (ValueSome z)
+                | Some '-', ValueSome x ->
+                    let! y = parseMultiplicativeExpression ValueNone
+                    let z = Subtract (x, y)
+                    return! parseAdditiveExpression (ValueSome z)
+                | _, ValueNone ->
+                    let! x = parseMultiplicativeExpression ValueNone
+                    return! parseAdditiveExpression (ValueSome x)
+                | _, ValueSome e ->
+                    return e
             } 
 
-        let parseAdditiveExpression () : Parser<unit, Arithmetic> =
-            parse {
-                let! x = parseAdditiveExpression ()
-                do! skipWhiteSpace ()
-                do! skipChar '+'
-                do! skipWhiteSpace ()
-                let! y = parseMultiplicativeExpression ()
-                return Add (x, y)
-            } <|> parse {
-                let! x = parseAdditiveExpression ()
-                do! skipWhiteSpace ()
-                do! skipChar '-'
-                do! skipWhiteSpace ()
-                let! y = parseMultiplicativeExpression ()
-                return Subtract (x, y)
-            } <|>  parse {
-                return! parseMultiplicativeExpression ()
-            }
-
-        let parseExpression () : Parser<unit, Arithmetic> =
-            parse {
-                do! skipWhiteSpace ()
-                do! skipChar '('
-                do! skipWhiteSpace ()
-                let! r = parseAdditiveExpression ()
-                do! skipWhiteSpace ()
-                do! skipChar ')'
-                do! skipWhiteSpace ()
-                return r
-            } <|> parse {
-                do! skipWhiteSpace ()
-                let! r = parseAdditiveExpression ()
-                do! skipWhiteSpace ()
-                return r
-            }
+        let parseExpression : Parser<unit, Arithmetic> = (sequence3 ws (parseAdditiveExpression ValueNone) ws) ||> middle
 
         let parseText text = 
-            tryRun (parseExpression ()) text ()
+            tryRun parseExpression text ()
 
         let evalText text =
             match parseText text with
-            | RunSuccess (_, r, _) -> eval r
-            | RunFailure (_, e, _) -> raise e
+            | RunSuccess (_, r, _) -> 
+                eval r
+            | RunFailure (_, e, _) -> 
+                raise e
 
     end
 

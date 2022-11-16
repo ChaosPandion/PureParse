@@ -100,11 +100,19 @@ module TextParserTests =
             match tryRun (skipString "AAAA") "AAAA" () with
             | RunSuccess (_, (), _) -> ()
             | _ -> failwith "Unknown Result"
-
-        [<Fact>]
-        let ``skipWhiteSpace`` () =    
-            match tryRun (skipWhiteSpace ()) "  " () with
-            | RunSuccess (_, (), _) -> ()
+                        
+        [<Theory>]
+        [<InlineData(" ", 1)>]
+        [<InlineData("  ", 2)>]
+        [<InlineData("   ", 3)>]
+        [<InlineData("\n\n", 2)>]
+        [<InlineData("\t\t", 2)>]
+        [<InlineData("\t \t \n", 5)>]
+        let ``skipWhiteSpace skips passed every space.`` text expectedIndex =   
+            let stream = TextStream.Create ((), text)
+            match skipWhiteSpace<unit> () stream with
+            | Success (stream, _) ->
+                Assert.Equal(expectedIndex, stream.Index)
             | _ -> failwith "Unknown Result"
 
         [<Theory>]
@@ -157,6 +165,10 @@ module TextParserTests =
         [<InlineData("2", 2)>]
         [<InlineData("200", 200)>]
         [<InlineData("1200", 1200)>]
+        [<InlineData("-0", 0)>]
+        [<InlineData("-2", -2)>]
+        [<InlineData("-200", -200)>]
+        [<InlineData("-1200", -1200)>]
         let ``parseInt32`` text expect =  
             match tryRun (parseInt32 ()) text () with
             | RunSuccess (_, e, _) when expect = e -> ()

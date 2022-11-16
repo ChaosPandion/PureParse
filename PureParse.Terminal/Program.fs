@@ -77,7 +77,8 @@ let x = Json.parseText s
 
 open PureParse.Examples.Arithmetic
 
-let x = evalText "1 + (2 + 3) * 4"
+let x = evalText "-(1) + (2 + 3 * 7) * 4"
+let y = -(1) + (2 + 3 * 7) * 4
 
 System.Console.ReadKey(true) 
 |> ignore
