@@ -341,17 +341,17 @@ module PLisp =
 
     let private pOpenList:Parser<unit, unit> =
         parse {
-            do! skip pWhiteSpace
+            do! omit pWhiteSpace
             do! skipChar '('
-            do! skip pWhiteSpace
+            do! omit pWhiteSpace
             return ()
         }
 
     let private pCloseList:Parser<unit, unit> =
         parse {
-            do! skip pWhiteSpace
+            do! omit pWhiteSpace
             do! skipChar ')'
-            do! skip pWhiteSpace
+            do! omit pWhiteSpace
             return ()
         }   
         

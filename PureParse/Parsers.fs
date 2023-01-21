@@ -1,6 +1,7 @@
 ﻿namespace PureParse
 
 open System
+open System.Diagnostics
 open System.Text
 open FSharp.NativeInterop
 open System.Numerics;
@@ -10,6 +11,7 @@ open System.Runtime.Intrinsics;
 module Parsers =
 
     /// Bind the provided parser to the provided transform resulting in a new parser.
+    [<DebuggerStepThrough>]
     let bind<'TState, 'TData1, 'TData2> (parser: Parser<'TState, 'TData1>) (transform: Transform<'TState, 'TData1, 'TData2>) : Parser<'TState, 'TData2> =
         fun stream ->
             match parser stream with
@@ -19,6 +21,7 @@ module Parsers =
                 Failure(stream) 
 
     /// The 'return' or 'unit' function of the monad
+    [<DebuggerStepThrough>]
     let result<'TState, 'TData> (value: 'TData) : Parser<'TState, 'TData> = 
         fun stream ->
             Success (stream, value) 
@@ -57,8 +60,10 @@ module Parsers =
             | Success (stream, _) -> right stream 
             | Failure (_) -> Failure (stream)
 
-    /// Given a list of parsers, evaluate them in sequence returning a list containing the results of each parser,
-    let sequence<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) : Parser<'TState, 'TResult list>  = 
+    /// Given a list of parsers, evaluate them in sequence returning a 
+    /// list containing the results of each parser,
+    let sequence<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) 
+        : Parser<'TState, 'TResult list>  = 
         fun stream ->
             let rec parse ps stream rs =
                 match ps with
@@ -71,7 +76,9 @@ module Parsers =
                     | Failure (_) -> [], stream
             let result, nextStream = parse parsers stream []
             if result.Length <> parsers.Length then
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Sequence", "The provided parsers did not all succeed.")))
+                let m = "The provided parsers did not all succeed."
+                let e = stream.CreateErrorEventData("Sequence", m)
+                stream.ReportEvent(ParseFailure(e))
                 Failure(stream)
             else 
                 Success(nextStream, result)
@@ -210,6 +217,23 @@ module Parsers =
                 Success (stream, Some value) 
             | Failure (_) -> 
                 Success (stream, None)
+                
+    /// The provided parser is evaluated and the result is always a success
+    let succeedIgnoringResult<'TState, 'TData> (parser: Parser<'TState, 'TData>) : Parser<'TState, unit> =
+        fun stream ->
+            match parser stream with
+            | Success(stream, _) -> result () stream
+            | Failure(_) -> result () stream   
+
+    /// When the provided parser is a success the result will always be unit.
+    let ignoreResultWhenSuccess<'TState, 'TData> (parser: Parser<'TState, 'TData>) : Parser<'TState, unit> =
+        fun stream ->
+            match parser stream with
+            | Success(stream, _) -> Success (stream, ())  
+            | Failure(_) -> Failure (stream)  
+    
+    /// The provided parser is evaluated and the result is always a success.
+    let omit<'TState, 'TData> (parser: Parser<'TState, 'TData>) : Parser<'TState, unit> = succeedIgnoringResult parser
 
     /// Evaluate the next rune using the provided predicate and return the result.
     let satisfy<'TState> (predicate:Rune -> bool) =
@@ -229,20 +253,16 @@ module Parsers =
             | Failure (_) -> 
                 Success (stream, None)
             
-    /// The provided parser is evaluated and the result is always a success.
-    let skip<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) : Parser<'TState, unit> =
-        fun stream ->
-            match parser stream with
-            | Success(stream, _) -> result () stream
-            | Failure(_) -> result () stream            
+    /// When the provided parser is a success the result will always be unit.
+    let skip<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) : Parser<'TState, unit> = ignoreResultWhenSuccess parser        
 
     /// Evaluate all of the provided parsers and ignore the results.
-    let skipSequence<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) : Parser<'TState, unit>  = skip (sequence parsers)
+    let skipSequence<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) : Parser<'TState, unit>  = omit (sequence parsers)
 
     /// Pass over skip and evaluate parser.
-    let skipParse<'TState, 'TResult1, 'TResult2> (skip:Parser<'TState, 'TResult1>) (parser:Parser<'TState, 'TResult2>) : Parser<'TState, 'TResult2> =
+    let skipParse<'TState, 'TResult1, 'TResult2> (s:Parser<'TState, 'TResult1>) (parser:Parser<'TState, 'TResult2>) : Parser<'TState, 'TResult2> =
         fun (stream: TextStream<'TState>) ->
-            match skip stream with
+            match s stream with
             | Success(stream, _) -> parser stream
             | Failure(_) -> parser stream
 
@@ -289,7 +309,6 @@ module Parsers =
             match parser stream with
             | Success (_, data) -> Success (stream, data)
             | Failure (_) -> Failure (stream)
-
 
     let (>>=) = bind
     let (||>) = map

@@ -7,37 +7,36 @@ open TextStream
 module Parse =
 
     /// The builder type for computational expressions. IE: parse { ... }
+    [<System.Diagnostics.DebuggerStepThrough>]
     type ParseBuilder () = 
 
-        member _.Bind (p:Parser<_, _>, f:Transform<_, _, _>):Parser<_, _> = 
-            fun stream -> bind p f stream
+        member _.Bind (p, f) stream = 
+            bind p f stream
 
-        member _.Return (value) : Parser<_, _> = 
-            fun stream -> result value stream
+        member _.Return value stream = 
+            result value stream
 
-        member _.Zero () : Parser<_, _> = 
-            fun stream -> result () stream
+        member _.Zero () stream = 
+            result () stream
 
-        member _.ReturnFrom (p:Parser<_, _>):Parser<_, _> = 
-            fun stream -> p stream
+        member _.ReturnFrom (p:Parser<_,_>) stream = 
+            p stream
 
-        member _.Delay (delayed:Delayed<_, _>) : Parser<_, _> = 
-            fun stream -> delayed () stream
+        member _.Delay delayed stream =
+            delayed () stream
 
-        member _.TryWith (p:Parser<_, _>, onWith:TryWith<_, _>) : Parser<_, _> =
-            fun stream -> 
+        member _.TryWith (p:Parser<_,_>, onWith) (stream:TextStream<_>) =
                 try p stream
                 with ex ->
                     stream.ReportEvent(ParseFailure(stream.CreateEventData("Failure", "An exception occurred.", ex)))
                     onWith ex stream
 
-        member _.TryFinally (p:Parser<_, _>, onFinally:TryFinally) : Parser<_, _> =
-            fun stream -> 
+        member _.TryFinally (p:Parser<_,_>, onFinally) (stream:TextStream<_>) =
                 try p stream
                 finally onFinally ()
 
-        member _.Run (parser:Parser<_, _>) : Parser<_, _> = 
-            fun stream -> parser stream
+        member _.Run parser stream = 
+            parser stream
 
     let parse = ParseBuilder()
 

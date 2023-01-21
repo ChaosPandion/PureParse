@@ -233,6 +233,7 @@ module ListParsers =
                 Failure(stream) 
             else
                 Success(stream, elements)
+
     /// Evaluate the parser until the ending, collecting the results.
     let parseUntil2<'TState, 'TElement> 
         (parser:Parser<'TState, 'TElement>) 
@@ -258,6 +259,7 @@ module ListParsers =
                 Failure(stream) 
             else
                 Success(stream, elements)
+
     /// Evaluate the parser separated by the separator, collecting the results.
     let parseManySep2<'TState, 'TElement> 
         (parser:Parser<'TState, 'TElement>) 
@@ -290,6 +292,7 @@ module ListParsers =
                 Failure(stream) 
             else
                 Success (stream, elements)
+
     /// Evaluate the parser separated by the separator until the ending, collecting the results.
     let parseManySepUntil2<'TState, 'TElement> 
         (parser:Parser<'TState, 'TElement>) 

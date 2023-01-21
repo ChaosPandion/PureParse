@@ -22,6 +22,7 @@
     <Compile Include="Functions.fs" />
     <Compile Include="Parsers.fs" />
     <Compile Include="ListParsers.fs" />
+    <Compile Include="NumberParsers.fs" />
     <Compile Include="TextParsers.fs" />
     <Compile Include="Parse.fs" />
   </ItemGroup>

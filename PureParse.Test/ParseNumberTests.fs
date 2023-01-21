@@ -95,10 +95,12 @@ module ParseNumberTests =
     [<InlineData(1.1e-1, "1.1e-1")>]
     [<InlineData(1.12e-1, "1.12e-1")>]
     [<InlineData(1.123e-1, "1.123e-1")>]
+    [<InlineData(8.793607e+003, "8.793607e+003")>]
     [<InlineData(1023.999e+99, "1023.999e+99")>]
     [<InlineData(-1023.999e+99, "-1023.999e+99")>]
     [<InlineData(1.2e-99, "1.2e-99")>]
     [<InlineData(1.2E-99, "1.2E-99")>]
+    [<InlineData(8038.11111111111111111, "8038.11111111111111111")>]
     let ``Parse Float`` expect text =
         let result = parseDouble text
         match result with

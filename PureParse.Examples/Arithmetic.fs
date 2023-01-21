@@ -70,7 +70,7 @@ module Arithmetic =
 
         let parseNumberExpression : Parser<unit, Arithmetic> =
             parse {
-                let! r = PureParse.Examples.Number.parseFloat<unit>
+                let! r = parseReal<unit, double> ()
                 return Number r
             }
 

@@ -6,13 +6,30 @@ open PureParse
 open Xunit
 
 module TextParserTests = 
-    begin        
-        
+    begin
+
+        [<Theory>]
+        [<InlineData('9', '0')>]
+        [<InlineData('F', 'A')>]
+        [<InlineData('Z', 'A')>]
+        [<Trait("Method", "charRange")>]
+        let ``charRange fails when min is greater than max`` minChar maxChar =
+            Assert.Throws<exn>(fun () -> run (charRange minChar maxChar) "A" () |> ignore)
+
+        [<Theory>]
+        [<InlineData('\uD800', '\uDC00')>]
+        [<InlineData('\uD801', '\uDC02')>]
+        [<InlineData('\uD80A', '\uDC0A')>]
+        [<Trait("Method", "charRange")>]
+        let ``charRange fails when a surrogate pair is passed in`` minChar maxChar =
+            Assert.Throws<exn>(fun () -> run (charRange minChar maxChar) "A" () |> ignore)
+
         [<Theory>]
         [<InlineData('0', '9', "0", '0', true)>]
         [<InlineData('0', '9', "A", 'A', false)>]
         [<InlineData('A', 'F', "A", 'A', true)>]
         [<InlineData('A', 'F', "1", '1', false)>]
+        [<Trait("Method", "charRange")>]
         let ``charRange tests`` minChar maxChar input expect success =
             let test p n =         
                 match tryRun p input () with
@@ -24,10 +41,19 @@ module TextParserTests =
             test (charRange minChar maxChar) "charRange"
 
         [<Theory>]
+        [<InlineData('9', '0')>]
+        [<InlineData('F', 'A')>]
+        [<InlineData('Z', 'A')>]
+        [<Trait("Method", "runeRange")>]
+        let ``runeRange fails when min is greater than max`` (minChar: char) (maxChar: char) =
+            Assert.Throws<exn>(fun () -> run (runeRange (Rune minChar) (Rune maxChar)) "A" () |> ignore)
+
+        [<Theory>]
         [<InlineData('0', '9', "0", '0', true)>]
         [<InlineData('0', '9', "A", 'A', false)>]
         [<InlineData('A', 'F', "A", 'A', true)>]
         [<InlineData('A', 'F', "1", '1', false)>]
+        [<Trait("Method", "runeRange")>]
         let ``runeRange tests.`` minChar maxChar input expect success =
             let test p n =         
                 match tryRun p input () with
@@ -41,6 +67,7 @@ module TextParserTests =
         [<Theory>]
         [<InlineData('0', "0", '0', true)>]
         [<InlineData('0', "1", '1', false)>]
+        [<Trait("Method", "parseRune")>]
         let ``parseRune tests.`` c input expect success =        
             match tryRun (parseRune (Rune (char c))) input () with
             | RunSuccess (_, x, _) when success -> Assert.Equal(Rune(char expect), x)
@@ -52,6 +79,7 @@ module TextParserTests =
         [<Theory>]
         [<InlineData('0', "0", '0', true)>]
         [<InlineData('0', "1", '1', false)>]
+        [<Trait("Method", "parseChar")>]
         let ``parseChar tests.`` c input expect success =        
             match tryRun (parseChar (char c)) input () with
             | RunSuccess (_, x, _) when success -> Assert.Equal(char expect, x)
@@ -63,6 +91,7 @@ module TextParserTests =
         [<Theory>]
         [<InlineData("000", "000", "000", true)>]
         [<InlineData("000", "111", "111", false)>]
+        [<Trait("Method", "parseString")>]
         let ``parseString tests.`` s input expect success =        
             match tryRun (parseString s) input () with
             | RunSuccess (_, x, _) when success -> Assert.Equal(expect, x)
@@ -75,6 +104,7 @@ module TextParserTests =
         [<InlineData("   ", "   ", true)>]
         [<InlineData("\n\n\n", "\n\n\n", true)>]
         [<InlineData("111", "111", false)>]
+        [<Trait("Method", "parseWhiteSpace")>]
         let ``parseWhiteSpace tests.`` input expect success =        
             match tryRun (parseWhiteSpace ()) input () with
             | RunSuccess (_, x, _) when success -> Assert.Equal(expect, x)
@@ -84,18 +114,21 @@ module TextParserTests =
             | _ -> failwithf "Unknown Result"
 
         [<Fact>]
+        [<Trait("Method", "skipRune")>]
         let ``skipRune`` () =    
             match tryRun (skipRune (Rune 'A')) "A" () with
             | RunSuccess (_, (), _) -> ()
             | _ -> failwith "Unknown Result"
 
         [<Fact>]
+        [<Trait("Method", "skipChar")>]
         let ``skipChar`` () =    
             match tryRun (skipChar 'A') "A" () with
             | RunSuccess (_, (), _) -> ()
             | _ -> failwith "Unknown Result"
 
         [<Fact>]
+        [<Trait("Method", "skipString")>]
         let ``skipString`` () =    
             match tryRun (skipString "AAAA") "AAAA" () with
             | RunSuccess (_, (), _) -> ()
@@ -108,6 +141,8 @@ module TextParserTests =
         [<InlineData("\n\n", 2)>]
         [<InlineData("\t\t", 2)>]
         [<InlineData("\t \t \n", 5)>]
+        [<InlineData("\u2003\u3000", 2)>]
+        [<Trait("Method", "skipWhiteSpace")>]
         let ``skipWhiteSpace skips passed every space.`` text expectedIndex =   
             let stream = TextStream.Create ((), text)
             match skipWhiteSpace<unit> () stream with
@@ -120,6 +155,7 @@ module TextParserTests =
         [<InlineData(true, "ABC", "1", '1', false)>]
         [<InlineData(false, "ABC", "1", '1', true)>]
         [<InlineData(false, "ABC", "A", 'A', false)>]
+        [<Trait("Method", "parseRuneBySet")>]
         let ``parseRuneBySet`` contains (setString:string) input (expect:char) success =  
             let set = setString |> Seq.map Rune |> Set.ofSeq
             let p = parseRuneBySet<unit> set contains
@@ -131,48 +167,39 @@ module TextParserTests =
             | _ -> failwithf "Unknown Result"
 
         [<Fact>]
+        [<Trait("Method", "parseAnyOf")>]
         let ``parseAnyOf(set)`` () =    
             match tryRun (parseAnyOf (RuneSet (Set.ofList[Rune 'a'; Rune 'b']))) "a" () with
             | RunSuccess (_, Rune 'a', _) -> ()
             | _ -> failwith "Unknown Result"
 
         [<Fact>]
+        [<Trait("Method", "parseAnyOf")>]
         let ``parseAnyOf(runeSeq)`` () =    
             match tryRun (parseAnyOf (RuneSeq (Seq.ofList[Rune 'a'; Rune 'b']))) "a" () with
             | RunSuccess (_, Rune 'a', _) -> ()
             | _ -> failwith "Unknown Result"
 
         [<Fact>]
+        [<Trait("Method", "parseAnyOf")>]
         let ``parseAnyOf(runeString)`` () =    
             match tryRun (parseAnyOf (RuneString "ab")) "a" () with
             | RunSuccess (_, Rune 'a', _) -> ()
             | _ -> failwith "Unknown Result"
 
         [<Fact>]
+        [<Trait("Method", "parseAnyOf")>]
         let ``parseAnyOf(runeCharSeq)`` () =    
             match tryRun (parseAnyOf (RuneCharSeq "ab")) "a" () with
             | RunSuccess (_, Rune 'a', _) -> ()
             | _ -> failwith "Unknown Result"
 
         [<Fact>]
+        [<Trait("Method", "parseAnyOf")>]
         let ``parseAnyOf(runeCharArray)`` () =    
             match tryRun (parseAnyOf (RuneCharArray ("ab" |> Seq.toArray))) "a" () with
             | RunSuccess (_, Rune 'a', _) -> ()
             | _ -> failwith "Unknown Result"
-                        
-        [<Theory>]
-        [<InlineData("0", 0)>]
-        [<InlineData("2", 2)>]
-        [<InlineData("200", 200)>]
-        [<InlineData("1200", 1200)>]
-        [<InlineData("-0", 0)>]
-        [<InlineData("-2", -2)>]
-        [<InlineData("-200", -200)>]
-        [<InlineData("-1200", -1200)>]
-        let ``parseInt32`` text expect =  
-            match tryRun (parseInt32 ()) text () with
-            | RunSuccess (_, e, _) when expect = e -> ()
-            | _ -> failwithf "Unknown Result"
 
         [<Fact>]
         [<Trait("Method", "parseAnyString")>]
@@ -261,16 +288,19 @@ module TextParserTests =
         [<Trait("Method", "parseAnyString")>]
         let ``parseAnyString fails when the list is empty`` () =  
             Assert.ThrowsAny(fun () -> parseAnyString<unit> [ ] |> ignore) |> ignore
-
+            
+        [<Fact>]
         [<Trait("Method", "parseAnyString")>]
         let ``parseAnyString fails when the list has an empty string`` () =  
             Assert.ThrowsAny(fun () -> parseAnyString<unit> [ "AAA"; "" ] |> ignore) |> ignore
-
+            
+        [<Fact>]
         [<Trait("Method", "parseAnyString")>]
         let ``parseAnyString fails when the list has a null string`` () =  
             Assert.ThrowsAny(fun () -> parseAnyString<unit> [ "AAA"; null ] |> ignore) |> ignore
             
         [<Fact>]
+        [<Trait("Method", "parseCharString")>]
         let ``parseCharString creates an entire string given a simple parser.`` () = 
             let p = parseRune (Rune 'A')
             let p = parseCharString p
