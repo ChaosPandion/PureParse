@@ -12,9 +12,12 @@ module NumberParsers =
     let signs = Set.ofList [ Rune '-'; Rune '+'; ]
     let exponents = Set.ofList [ Rune 'e'; Rune 'E'; ]
 
+    /// Calculates all base-10 power values greater or equal to zero.
     type Base10PowerFunction<'TNumber when 'TNumber :> INumberBase<'TNumber>>() =
         static let ten = 'TNumber.Parse("10", CultureInfo.InvariantCulture)
         static member Calculate (n:int) = 
+            if n < 0 then
+                raise (ArgumentOutOfRangeException(nameof n, "Value cannot be less than zero."))
             let mutable x = 'TNumber.One
             for _ = 0 to n - 1 do 
                 x <- x * ten

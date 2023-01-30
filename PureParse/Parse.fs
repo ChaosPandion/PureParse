@@ -44,7 +44,7 @@ module Parse =
     ///  Attempt to run the provided parser given a string of text and an initial state. 
     ///  The result type specifies success or failure.
     /// </summary>
-    /// <exception cref="System.ArgumentNullException">The provided text was null.</exception>
+    /// <exception cref="System.ArgumentNullException"><paramref name="text" /> was null.</exception>
     let tryRun<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) (text:string) (state:'TState) : RunResult<'TState, 'TResult> =
         if text = null then
             nullArg (nameof(text))
@@ -66,8 +66,8 @@ module Parse =
     ///  Run the provided parser given a string of text and an initial state. 
     ///  When a failure occurs a detailed exception is thrown.
     /// </summary>
-    /// <exception cref="System.ArgumentNullException">The provided text was null.</exception>
-    /// <exception cref="PureParse.PureParseException">The provided parser did not succeed.</exception>
+    /// <exception cref="System.ArgumentNullException"><paramref name="text" /> was null.</exception>
+    /// <exception cref="PureParse.PureParseException"><paramref name="parser" /> did not succeed.</exception>
     let run<'TState, 'TResult> (parser:Parser<'TState, 'TResult>) (text:string) (state:'TState) : 'TResult =
         if text = null then
             nullArg (nameof(text))

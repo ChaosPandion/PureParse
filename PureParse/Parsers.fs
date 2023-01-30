@@ -113,7 +113,7 @@ module Parsers =
                 | Failure (_) -> Failure (stream)
             | Failure (_) -> Failure (stream)
 
-    /// Evaulate the four provided parsers and return the result as a tuple.
+    /// Evaluate the four provided parsers and return the result as a 4-tuple.
     let sequence4<'TState, 'TResult1, 'TResult2, 'TResult3, 'TResult4> 
         (p1:Parser<'TState, 'TResult1>) 
         (p2:Parser<'TState, 'TResult2>) 

@@ -3,6 +3,8 @@
 open System.Text
 open PureParse
 
+open System
+
 #nowarn "40"
 
 module Arithmetic =
@@ -11,8 +13,32 @@ module Arithmetic =
         (*               
             NumberExpression:
                 Float  
+            Letter:
+                a-z
+                A-Z
+            Digit:
+                0-9
+            NameStart:
+                Letter
+            NamePart:
+                Letter
+                Digit
+            NameTrail:
+                NamePart
+                NamePart NameTrail
+            NameExpression:
+                NameStart
+                NameStart NameTrail
+            Argument:
+                Expression
+            ArgumentList:
+                Argument
+                ArgumentList , Argument
+            FunctionCallExpression:
+                NameExpression ( ArgumentList )
             BaseExpression:            
-                ( Expression )
+                ( Expression ) 
+                FunctionCallExpression
                 NumberExpression
             SignExpression:
                 BaseExpression
@@ -30,8 +56,35 @@ module Arithmetic =
                 AdditiveExpression
         *)
 
+        let fMap:Map<string, double array -> double> = 
+            Map.ofList [
+                ("abs", fun args -> abs args[0])
+                ("acos", fun args -> acos args[0])
+                ("acosh", fun args -> Math.Acosh args[0])
+                ("asin", fun args -> asin args[0])
+                ("asinh", fun args -> Math.Asinh args[0])
+                ("atan", fun args -> atan args[0])
+                ("atan2", fun args -> atan2 args[0] args[1])
+                ("cbrt", fun args -> Math.Cbrt args[0])
+                ("ceil", fun args -> ceil args[0])
+                ("cos", fun args -> cos args[0])
+                ("cosh", fun args -> cosh args[0])
+                ("exp", fun args -> exp args[0])
+                ("floor", fun args -> floor args[0])
+                ("log", fun args -> log args[0])
+                ("log10", fun args -> log10 args[0])
+                ("pow", fun args -> pown args[0] (args[1] |> int))
+                ("sin", fun args -> sin args[0])
+                ("sinh", fun args -> sinh args[0])
+                ("sqrt", fun args -> sqrt args[0])
+                ("tan", fun args -> tan args[0])
+                ("tanh", fun args -> tanh args[0])
+                ("truncate", fun args -> truncate args[0])
+            ]
+
         type Arithmetic =
             | Number of double
+            | FunctionCall of string * Arithmetic list
             | UnaryPlus of Arithmetic
             | UnaryMinus of Arithmetic
             | Add of Arithmetic * Arithmetic
@@ -42,6 +95,9 @@ module Arithmetic =
         let rec eval body =
             match body with
             | Number n -> n
+            | FunctionCall (name, args) ->
+                let args = args |> List.map eval |> Array.ofList
+                fMap[name] args
             | UnaryPlus e -> +(eval e)
             | UnaryMinus e -> -(eval e)
             | Add (left, right) -> eval left +  eval right
@@ -68,6 +124,39 @@ module Arithmetic =
         let parseDivideOperator:Parser<unit, char> = 
             (sequence3 ws (parseChar '/') ws) ||> middle
 
+        let parseDigit: Parser<unit, Rune> = satisfy Rune.IsDigit
+
+        let parseLetter: Parser<unit, Rune> = satisfy (fun r -> (r >= Rune('a') && r <= Rune('z')) || (r >= Rune('A') && r <= Rune('Z')))
+
+        let parseLetterOrDigit: Parser<unit, Rune> = parseLetter <|> parseDigit
+
+        let parseNameStart = parseLetter
+
+        let parseNamePart = parseLetterOrDigit
+
+        let parseNameTrail: Parser<unit, Rune list> = parseMany parseNamePart 0
+
+        let parseName: Parser<unit, string> = 
+            parse {
+                let! s = parseNameStart
+                let! rest = optional parseNameTrail
+                match rest with
+                | Some rest ->
+                    return s.ToString() + String.Join("", rest)
+                | None -> 
+                    return s.ToString()
+            }
+
+        let parseArguments: Parser<unit, Arithmetic list> = 
+            parseManySep (parseExpression) (skipOperator ',') false 0
+
+        let parseFunctionExpression: Parser<unit, Arithmetic> =
+            parse {
+                let! n = parseName
+                let! _, args, _ =  sequence3 (skipOperator '(') parseArguments (skipOperator ')')
+                return FunctionCall (n, args)
+            }
+
         let parseNumberExpression : Parser<unit, Arithmetic> =
             parse {
                 let! r = parseReal<unit, double> ()
@@ -75,7 +164,8 @@ module Arithmetic =
             }
 
         let parseBaseExpression : Parser<unit, Arithmetic> =
-            parseNumberExpression
+            parseNumberExpression <|>
+            parseFunctionExpression
                 <|> parse {
                     let! _, r, _ = sequence3 (skipOperator '(') parseExpression (skipOperator ')')
                     return r

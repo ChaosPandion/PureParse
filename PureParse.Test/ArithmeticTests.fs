@@ -10,19 +10,48 @@ open System.Collections.Generic
 
 module ArithmeticTests = 
     begin
+
+        [<Fact>]
+        let ``The abs function is correct.`` () =
+            let expect = abs -1.0
+            let actual = Arithmetic.evalText "abs(-1.0)"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
+
+        [<Fact>]
+        let ``The sqrt function is correct.`` () =
+            let expect = sqrt 1.0
+            let actual = Arithmetic.evalText "sqrt(1.0)"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
+
+        [<Fact>]
+        let ``The atan2 function is correct.`` () =
+            let expect = atan2 1.0 2.0
+            let actual = Arithmetic.evalText "atan2(1.0, 2.0)"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
+
+        [<Fact>]
+        let ``The result of 2 functions can be operated on.`` () =
+            let expect = atan2 1.0 2.0 + sqrt 1.0
+            let actual = Arithmetic.evalText "atan2(1.0, 2.0) + sqrt(1.0)"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
+
+        [<Fact>]
+        let ``A function can contain complex arguments`` () =
+            let expect = atan2 (sqrt 1.0) (sqrt 2.0)
+            let actual = Arithmetic.evalText "atan2(sqrt(1.0), sqrt(2.0))"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
         
         [<Theory>]
         [<ClassData(typedefof<ArithmeticData>)>]
         let ``The result of the evaluation is correct.`` expression (expect:double) = 
             let result = Arithmetic.evalText expression
-            let n = Math.Abs(expect - result) //> 0.00000001
-            //Assert.True(n < 0.00000001)
+            let n = Math.Abs(expect - result)
             Assert.InRange(n, 0.0, 0.00001)
-
-            //let x = System.Math.Round(expect, 12, MidpointRounding.ToEven)
-            //let y = Arithmetic.evalText expression
-            //let y = System.Math.Round(y, 12, MidpointRounding.ToEven)
-            //Assert.Equal(expect, y, 4)
 
     type ArithmeticData() =
         interface IEnumerable with

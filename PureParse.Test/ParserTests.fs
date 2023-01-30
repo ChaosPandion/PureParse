@@ -6,38 +6,6 @@ open PureParse
 open Xunit
 
 module ParserTests = begin
-    
-        [<Fact>]
-        let ``The try pattern allows you to continue`` () =
-            let mutable m = ""
-            let p:Parser<unit, int> = 
-                parse {
-                    try 
-                        failwith "test"
-                        return 1
-                    with 
-                    | ex -> 
-                        m <- ex.ToString()
-                        return 2
-                }
-            match tryRun p "" () with
-            | RunSuccess (_, 2, _) ->
-                Assert.False(String.IsNullOrEmpty m)
-            | _ -> failwith "Expecting Success"
-
-        [<Fact>]
-        let ``The try finally pattern allows you to continue`` () =
-            let mutable f = false
-            let p:Parser<unit, int> = 
-                parse {
-                    try 
-                        return 1
-                    finally 
-                        f <- true
-                }
-            match tryRun p "" () with
-            | RunSuccess (_, 1, _) when f -> ()
-            | _ -> failwith "Expecting Success"
         
         [<Fact>]
         let ``bind() is a success`` () =
@@ -78,6 +46,38 @@ module ParserTests = begin
                 | Success (_, _) -> failwith "Expecting Failure"
             test bind
             test (>>=)
+    
+        [<Fact>]
+        let ``The try pattern allows you to continue`` () =
+            let mutable m = ""
+            let p:Parser<unit, int> = 
+                parse {
+                    try 
+                        failwith "test"
+                        return 1
+                    with 
+                    | ex -> 
+                        m <- ex.ToString()
+                        return 2
+                }
+            match tryRun p "" () with
+            | RunSuccess (_, 2, _) ->
+                Assert.False(String.IsNullOrEmpty m)
+            | _ -> failwith "Expecting Success"
+
+        [<Fact>]
+        let ``The try finally pattern allows you to continue`` () =
+            let mutable f = false
+            let p:Parser<unit, int> = 
+                parse {
+                    try 
+                        return 1
+                    finally 
+                        f <- true
+                }
+            match tryRun p "" () with
+            | RunSuccess (_, 1, _) when f -> ()
+            | _ -> failwith "Expecting Success"
             
         [<Theory>]
         [<InlineData(1)>]

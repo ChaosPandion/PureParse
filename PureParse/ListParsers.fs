@@ -9,6 +9,9 @@ open System.Runtime.Intrinsics;
 [<AutoOpen>]
 module ListParsers =
 
+    [<Literal>]
+    let private MinCountMessage = "Must be greater than -1."
+
     /// The list parsing mode and the parameters they require.
     type ListMode<'TState, 'TData> =
         | Many of minElements:int
@@ -34,8 +37,11 @@ module ListParsers =
         | ExactCount count -> 
             parseExactCount parser count
 
-    /// Evaluate the parser collecting the results. The result must have the exact count of elements expected.
+    /// <summary>Evaluate the parser collecting the results. The result must have the exact count of elements expected.</summary>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="count"/> is less than zero.</exception>
     let parseExactCount<'TState, 'TElement> (parser:Parser<'TState, 'TElement>) (count:int) : Parser<'TState, List<'TElement>> = 
+        if count < 0 then
+            raise (ArgumentOutOfRangeException (nameof count, MinCountMessage))
         fun (stream:TextStream<'TState>) ->
             let elements = ResizeArray(count)
             let mutable currentStream = stream
@@ -52,18 +58,19 @@ module ListParsers =
                         complete <- true
             let incorrectAmountOfElements = elements.Count <> count
             if incorrectAmountOfElements then
-                if incorrectAmountOfElements then
-                    stream.ReportEvent(ParseFailure(currentStream.CreateErrorEventData("Exact Count", $"Expected {count} elements.")))
                 stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Exact Count", $"The list must have exactly {count} elements")))
                 Failure (stream)
             else
                 Success (currentStream, elements |> Seq.toList)
 
-    /// Evaluate the parser collecting the results.
+    /// <summary>Evaluate the parser collecting the results.</summary>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="minElements"/> is less than zero.</exception>
     let parseMany<'TState, 'TElement> 
         (parser:Parser<'TState, 'TElement>) 
         (minElements:int)
         : Parser<'TState, List<'TElement>> =
+        if minElements < 0 then
+            raise (ArgumentOutOfRangeException (nameof minElements, MinCountMessage))
         fun (stream:TextStream<'TState>) ->
             let elements = ResizeArray()
             let mutable currentStream = stream
@@ -77,19 +84,20 @@ module ListParsers =
                     complete <- true
             let notEnoughElements = elements.Count < minElements
             if notEnoughElements then
-                if notEnoughElements then
-                    stream.ReportEvent(ParseFailure(currentStream.CreateErrorEventData("Many", $"Expected {minElements} elements.")))
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Many", "Failed to parse list of elements.")))
+                stream.ReportEvent(ParseFailure(currentStream.CreateErrorEventData("Many", $"Expected {minElements} elements.")))
                 Failure (stream)
             else
                 Success (currentStream, elements |> Seq.toList)
 
-    /// Evaluate the parser until the ending, collecting the results.
+    /// <summary>Evaluate the parser until the ending, collecting the results.</summary>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="minElements"/> is less than zero.</exception>
     let parseUntil<'TState, 'TElement> 
         (parser:Parser<'TState, 'TElement>) 
         (ending:Parser<'TState, unit>)
         (minElements:int)
         : Parser<'TState, List<'TElement>> =
+        if minElements < 0 then
+            raise (ArgumentOutOfRangeException (nameof minElements, MinCountMessage))
         fun (stream:TextStream<'TState>) ->
             let elements = ResizeArray()
             let mutable currentStream = stream
@@ -123,13 +131,16 @@ module ListParsers =
             else
                 Success (currentStream, elements |> Seq.toList)
 
-    /// Evaluate the parser separated by the separator, collecting the results.
+    /// <summary>Evaluate the parser separated by the separator, collecting the results.</summary>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="minElements"/> is less than zero.</exception>
     let parseManySep<'TState, 'TElement> 
         (parser:Parser<'TState, 'TElement>) 
         (separator:Parser<'TState, unit>) 
         (allowTrailingSeparator:bool) 
         (minElements:int) 
         : Parser<'TState, List<'TElement>> =
+        if minElements < 0 then
+            raise (ArgumentOutOfRangeException (nameof minElements, MinCountMessage))
         fun (stream:TextStream<'TState>) ->
             let elements = ResizeArray()
             let mutable currentStream = stream
@@ -159,7 +170,8 @@ module ListParsers =
             else
                 Success (currentStream, elements |> Seq.toList)
 
-    /// Evaluate the parser separated by the separator until the ending, collecting the results.
+    /// <summary>Evaluate the parser separated by the separator until the ending, collecting the results.</summary>
+    /// <exception cref="System.ArgumentOutOfRangeException"><paramref name="minElements"/> is less than zero.</exception>
     let parseManySepUntil<'TState, 'TElement> 
         (parser:Parser<'TState, 'TElement>) 
         (separator:Parser<'TState, unit>) 
@@ -167,6 +179,8 @@ module ListParsers =
         (allowTrailingSeparator:bool) 
         (minElements:int) 
         : Parser<'TState, List<'TElement>> =
+        if minElements < 0 then
+            raise (ArgumentOutOfRangeException (nameof minElements, MinCountMessage))
         fun (stream:TextStream<'TState>) ->
             let elements = ResizeArray()
             let mutable currentStream = stream
@@ -213,116 +227,116 @@ module ListParsers =
 
 
     // Pure versions
+    module private Pure = 
+        /// Evaluate the parser collecting the results.
+        let parseMany2<'TState, 'TElement> 
+            (parser:Parser<'TState, 'TElement>) 
+            (minElements:int)
+            : Parser<'TState, List<'TElement>> =
+            fun (stream:TextStream<'TState>) ->
+                let rec parse stream elements =
+                    match parser stream with
+                    | Failure (_) -> struct(stream, elements)
+                    | Success (stream, element) -> 
+                        let struct(stream, elements) = parse stream elements
+                        struct(stream, element::elements)
+                let struct(stream, elements) = parse stream []
+                if elements.Length < minElements then 
+                    let m = sprintf "At least %i elements are required." minElements
+                    stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Parse Many", m)))
+                    Failure(stream) 
+                else
+                    Success(stream, elements)
 
-    /// Evaluate the parser collecting the results.
-    let parseMany2<'TState, 'TElement> 
-        (parser:Parser<'TState, 'TElement>) 
-        (minElements:int)
-        : Parser<'TState, List<'TElement>> =
-        fun (stream:TextStream<'TState>) ->
-            let rec parse stream elements =
-                match parser stream with
-                | Failure (_) -> struct(stream, elements)
-                | Success (stream, element) -> 
-                    let struct(stream, elements) = parse stream elements
-                    struct(stream, element::elements)
-            let struct(stream, elements) = parse stream []
-            if elements.Length < minElements then 
-                let m = sprintf "At least %i elements are required." minElements
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Parse Many", m)))
-                Failure(stream) 
-            else
-                Success(stream, elements)
-
-    /// Evaluate the parser until the ending, collecting the results.
-    let parseUntil2<'TState, 'TElement> 
-        (parser:Parser<'TState, 'TElement>) 
-        (ending:Parser<'TState, unit>)
-        : Parser<'TState, List<'TElement>> =
-        fun (stream:TextStream<'TState>) ->
-            let firstStream = stream
-            let rec parse stream elements =
-                match parser stream with
-                | Failure (_) -> 
-                    struct (firstStream, [], false)
-                | Success (stream, element) ->
-                    match ending stream with
-                    | Success (stream, _) ->
-                        struct (stream, element::elements, true)
-                    | Failure (_) ->
-                        let struct(stream, elements, success) = parse stream elements
-                        struct(stream, element::elements, success)
-            let struct(stream, elements, success) = parse stream []
-            if not success then 
-                let m = "Failed to reach ending parser."
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Parse Until", m)))
-                Failure(stream) 
-            else
-                Success(stream, elements)
-
-    /// Evaluate the parser separated by the separator, collecting the results.
-    let parseManySep2<'TState, 'TElement> 
-        (parser:Parser<'TState, 'TElement>) 
-        (separator:Parser<'TState, unit>) 
-        (allowTrailingSeparator:bool) 
-        (minElements:int) 
-        : Parser<'TState, List<'TElement>> =
-        fun (stream:TextStream<'TState>) ->
-            let rec parse stream elements =
-                match parser stream with
-                | Failure (_) -> 
-                    struct (stream, [], false)
-                | Success (stream, element) ->
-                    match separator stream with
-                    | Success (stream, _) ->
-                        let struct(stream, elements, success) = parse stream elements
-                        if not success then
-                            struct(stream, element::elements, allowTrailingSeparator)
-                        else
-                            struct(stream, element::elements, true)
-
-                    | Failure (_) ->
-                        struct(stream, element::elements, true)
-            let struct(stream, elements, success) = parse stream []
-            if not success && (minElements = 0 && elements.Length = 0) then
-                Success (stream, elements)
-            elif not success || elements.Length < minElements then 
-                let m = sprintf "Failed to create a list of at least %i elements." minElements
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Parse Many Sep", m)))
-                Failure(stream) 
-            else
-                Success (stream, elements)
-
-    /// Evaluate the parser separated by the separator until the ending, collecting the results.
-    let parseManySepUntil2<'TState, 'TElement> 
-        (parser:Parser<'TState, 'TElement>) 
-        (separator:Parser<'TState, unit>) 
-        (ending:Parser<'TState, unit>) 
-        (minElements:int) 
-        : Parser<'TState, List<'TElement>> =
-        fun (stream:TextStream<'TState>) ->
-            let firstStream = stream
-            let rec parse stream elements =
-                match parser stream with
-                | Failure (_) -> 
-                    struct (firstStream, [], false)
-                | Success (stream, element) ->
-                    match ending stream with
-                    | Success (stream, _) ->
-                        struct(stream, element::elements, true)
-                    | Failure (stream) ->
-                        match separator stream with
-                        | Failure (_) ->
-                            struct(stream, element::elements, true)
+        /// Evaluate the parser until the ending, collecting the results.
+        let parseUntil2<'TState, 'TElement> 
+            (parser:Parser<'TState, 'TElement>) 
+            (ending:Parser<'TState, unit>)
+            : Parser<'TState, List<'TElement>> =
+            fun (stream:TextStream<'TState>) ->
+                let firstStream = stream
+                let rec parse stream elements =
+                    match parser stream with
+                    | Failure (_) -> 
+                        struct (firstStream, [], false)
+                    | Success (stream, element) ->
+                        match ending stream with
                         | Success (stream, _) ->
+                            struct (stream, element::elements, true)
+                        | Failure (_) ->
                             let struct(stream, elements, success) = parse stream elements
                             struct(stream, element::elements, success)
-            let struct(stream, elements, success) = parse stream []
-            if not success && (minElements = 0 && elements.Length = 0) then
-                Success (stream, elements)
-            elif not success || elements.Length < minElements then 
-                let m = sprintf "Failed to create a list of at least %i elements." minElements
-                stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Parse Many Sep Until", m)))
-                Failure(stream) 
-            else
-                Success (stream, elements)
+                let struct(stream, elements, success) = parse stream []
+                if not success then 
+                    let m = "Failed to reach ending parser."
+                    stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Parse Until", m)))
+                    Failure(stream) 
+                else
+                    Success(stream, elements)
+
+        /// Evaluate the parser separated by the separator, collecting the results.
+        let parseManySep2<'TState, 'TElement> 
+            (parser:Parser<'TState, 'TElement>) 
+            (separator:Parser<'TState, unit>) 
+            (allowTrailingSeparator:bool) 
+            (minElements:int) 
+            : Parser<'TState, List<'TElement>> =
+            fun (stream:TextStream<'TState>) ->
+                let rec parse stream elements =
+                    match parser stream with
+                    | Failure (_) -> 
+                        struct (stream, [], false)
+                    | Success (stream, element) ->
+                        match separator stream with
+                        | Success (stream, _) ->
+                            let struct(stream, elements, success) = parse stream elements
+                            if not success then
+                                struct(stream, element::elements, allowTrailingSeparator)
+                            else
+                                struct(stream, element::elements, true)
+
+                        | Failure (_) ->
+                            struct(stream, element::elements, true)
+                let struct(stream, elements, success) = parse stream []
+                if not success && (minElements = 0 && elements.Length = 0) then
+                    Success (stream, elements)
+                elif not success || elements.Length < minElements then 
+                    let m = sprintf "Failed to create a list of at least %i elements." minElements
+                    stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Parse Many Sep", m)))
+                    Failure(stream) 
+                else
+                    Success (stream, elements)
+
+        /// Evaluate the parser separated by the separator until the ending, collecting the results.
+        let parseManySepUntil2<'TState, 'TElement> 
+            (parser:Parser<'TState, 'TElement>) 
+            (separator:Parser<'TState, unit>) 
+            (ending:Parser<'TState, unit>) 
+            (minElements:int) 
+            : Parser<'TState, List<'TElement>> =
+            fun (stream:TextStream<'TState>) ->
+                let firstStream = stream
+                let rec parse stream elements =
+                    match parser stream with
+                    | Failure (_) -> 
+                        struct (firstStream, [], false)
+                    | Success (stream, element) ->
+                        match ending stream with
+                        | Success (stream, _) ->
+                            struct(stream, element::elements, true)
+                        | Failure (stream) ->
+                            match separator stream with
+                            | Failure (_) ->
+                                struct(stream, element::elements, true)
+                            | Success (stream, _) ->
+                                let struct(stream, elements, success) = parse stream elements
+                                struct(stream, element::elements, success)
+                let struct(stream, elements, success) = parse stream []
+                if not success && (minElements = 0 && elements.Length = 0) then
+                    Success (stream, elements)
+                elif not success || elements.Length < minElements then 
+                    let m = sprintf "Failed to create a list of at least %i elements." minElements
+                    stream.ReportEvent(ParseFailure(stream.CreateErrorEventData("Parse Many Sep Until", m)))
+                    Failure(stream) 
+                else
+                    Success (stream, elements)

@@ -9,21 +9,13 @@ open System.Text
 module LazyRuneString =
     begin
 
-        type LazyRuneStream(value:StreamReader) =
+        type LazyRuneString(text:string, index:int) =
             class
 
-                [<Literal>] 
-                let spanLength:int = 1024
-
-                let span1:Span<byte> = Span<byte>(Array.zeroCreate<byte> spanLength)
-                let length1:int = 0
-                let span2:Span<byte> = Span<byte>(Array.zeroCreate<byte> spanLength)
-                let length2:int = 0
+                static member Create(text:string) = LazyRuneString(text, 0)
 
                 member _.Next() =
                     begin
-
-
                     end
 
             end

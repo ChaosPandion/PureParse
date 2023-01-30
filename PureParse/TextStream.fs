@@ -71,19 +71,15 @@ module TextStream =
                 | Exact (Bounded count) when count < 0 -> 
                     raise <| ArgumentOutOfRangeException(nameof(range), "Must be at least 0.")
                 | Exact (Bounded count) -> count
-
                 | Between (Bounded(lower), Unbounded) when lower < 0 ->
                     raise <| ArgumentOutOfRangeException(nameof(range), "The lower bound must be at least 0.")
                 | Between (Bounded(lower), Unbounded) -> max lower remaining
-
                 | Between (Unbounded, Bounded(upper)) when upper < 0 ->
                     raise <| ArgumentOutOfRangeException(nameof(range), "The upper bound must be at least 0.")
                 | Between (Unbounded, Bounded(upper)) -> min upper remaining
-
                 | Between (Bounded(lower), Bounded(upper)) when lower < 0 || upper < 0 ->
                     raise <| ArgumentOutOfRangeException(nameof(range), "The bounds must be at least 0.")
-                | Between (Bounded(lower), Bounded(upper)) -> max lower (min upper remaining)
-                
+                | Between (Bounded(lower), Bounded(upper)) -> max lower (min upper remaining)                
                 | Exact Unbounded
                 | Between (Unbounded, Unbounded) 
                 | Remaining -> remaining
@@ -201,12 +197,14 @@ module TextStream =
 
             member this.Peek (exactMatch:string) : ValueOption<ReadOnlyMemory<Rune>> =
                 this.Assertions()
-                if exactMatch = null then nullArg (nameof(exactMatch))
-                let runes = exactMatch.EnumerateRunes() |> Seq.toArray |> ReadOnlyMemory
-                this.Peek(runes)
+                if String.IsNullOrEmpty exactMatch then
+                    invalidArg (nameof exactMatch) "Provide a non-empty string."
+                this.Peek(convertToMemory exactMatch)
 
             member this.Peek (exactMatch:ReadOnlyMemory<Rune>) : ValueOption<ReadOnlyMemory<Rune>> =
                 this.Assertions()
+                if exactMatch.IsEmpty then
+                    invalidArg (nameof exactMatch) "The memory cannot be empty."
                 if exactMatch.Length > this.Remaining then
                     ValueNone
                 else
@@ -259,10 +257,14 @@ module TextStream =
 
             member this.Next (exactMatch:string) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
                 this.Assertions()
+                if String.IsNullOrEmpty exactMatch then
+                    invalidArg (nameof exactMatch) "Provide a non-empty string."
                 this.Next(convertToMemory exactMatch)
 
             member this.Next (exactMatch:ReadOnlyMemory<Rune>) : ValueOption<ReadOnlyMemory<Rune> * TextStream<'TState>> =
                 this.Assertions()
+                if exactMatch.IsEmpty then
+                    invalidArg (nameof exactMatch) "The memory cannot be empty."
                 if exactMatch.Length > this.Remaining then
                     ValueNone
                 else

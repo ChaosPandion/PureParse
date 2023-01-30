@@ -253,6 +253,11 @@ module TextStreamTests =
         | ValueSome (RuneString x, _) when x = text  -> ()
         | _ -> failwith "Error" 
 
+    [<Fact>]
+    let ``Next(text) fails when an empty string is passed.`` () =
+        let stream = TextStream<unit>.Create((), "1234")
+        Assert.Throws<ArgumentException>(fun () -> stream.Next("") |> ignore)
+
     [<Theory>]
     [<InlineData("AAAAA")>]
     [<InlineData("BBBBB")>]
@@ -261,6 +266,11 @@ module TextStreamTests =
         match stream.Peek text with 
         | ValueSome (RuneString x) when x = text  -> ()
         | _ -> failwith "Error" 
+
+    [<Fact>]
+    let ``Peek(text) fails when the parameter is empty`` () =
+        let stream = TextStream<unit>.Create((), "1234")
+        Assert.Throws<ArgumentException>(fun () -> stream.Peek("") |> ignore)
 
     [<Theory>]
     [<InlineData("AAAAA")>]
@@ -272,6 +282,11 @@ module TextStreamTests =
         | ValueSome (RuneString x, _) when x = text  -> ()
         | _ -> failwith "Error" 
 
+    [<Fact>]
+    let ``Next(memory) fails when the parameter is empty`` () =
+        let stream = TextStream<unit>.Create((), "1234")
+        Assert.Throws<ArgumentException>(fun () -> stream.Next(ReadOnlyMemory<Rune>.Empty) |> ignore)
+
     [<Theory>]
     [<InlineData("AAAAA")>]
     [<InlineData("BBBBB")>]
@@ -281,6 +296,11 @@ module TextStreamTests =
         match stream.Peek runes with 
         | ValueSome (RuneString x) when x = text  -> ()
         | _ -> failwith "Error" 
+
+    [<Fact>]
+    let ``Peek(memory) fails when the parameter is empty`` () =
+        let stream = TextStream<unit>.Create((), "1234")
+        Assert.Throws<ArgumentException>(fun () -> stream.Peek(ReadOnlyMemory<Rune>.Empty) |> ignore)
 
     [<Theory>]
     [<InlineData("12345")>]

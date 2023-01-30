@@ -2,9 +2,11 @@
 
 open System
 
+/// A specific error at a location in the text stream.
 exception ParseError of message:string * index:int * line:int * column:int
     with override this.ToString() = $"A failure occurred '{this.message}' at index = {this.index}, line = {this.line}, column = {this.column}"
 
+/// The exception that is thrown when a parser does not succeed.
 type PureParseException<'TState>(tree:EventTree<'TState>) =
     inherit Exception()
 
@@ -23,6 +25,9 @@ type PureParseException<'TState>(tree:EventTree<'TState>) =
             m + x + c
         build tree 0)
 
+    /// Gets the event tree associated with the failed parsing operation.
     member _.Tree = tree
+
+    /// Gets the exception message.
     override _.Message = message.Value
 

@@ -163,18 +163,45 @@ module NumberParserTests =
             | RunSuccess (_, e, _) ->
                 Assert.Equal(expect, e)
             | _ -> failwithf "Unknown Result"
+
+        [<Theory>]
+        [<InlineData(-1)>]
+        [<InlineData(-2)>]
+        [<InlineData(-3)>]
+        [<InlineData(-4)>]
+        [<InlineData(-5)>]
+        [<InlineData(-6)>]
+        [<InlineData(-7)>]
+        [<InlineData(-8)>]
+        [<InlineData(-9)>]
+        [<InlineData(-10)>]
+        let ``Base10PowerFunction does not support negative powers`` n =
+            Assert.Throws<ArgumentOutOfRangeException>(fun () -> Base10PowerFunction<int64>.Calculate n |> ignore) |> ignore
             
-        [<Fact>]
-        let ``Base10PowerFunction is correct`` () =
-            Assert.Equal(1L, Base10PowerFunction<int64>.Calculate 0)
-            Assert.Equal(10L, Base10PowerFunction<int64>.Calculate 1)
-            Assert.Equal(100L, Base10PowerFunction<int64>.Calculate 2)
-            Assert.Equal(1000L, Base10PowerFunction<int64>.Calculate 3)
-            Assert.Equal(10000L, Base10PowerFunction<int64>.Calculate 4)
-            Assert.Equal(100000L, Base10PowerFunction<int64>.Calculate 5)
-            Assert.Equal(1000000L, Base10PowerFunction<int64>.Calculate 6)
-            Assert.Equal(10000000L, Base10PowerFunction<int64>.Calculate 7)
-            Assert.Equal(100000000L, Base10PowerFunction<int64>.Calculate 8)
-            Assert.Equal(1000000000L, Base10PowerFunction<int64>.Calculate 9)
-            Assert.Equal(10000000000L, Base10PowerFunction<int64>.Calculate 10)
+        [<Theory>]
+        [<InlineData(0)>]
+        [<InlineData(1)>]
+        [<InlineData(2)>]
+        [<InlineData(3)>]
+        [<InlineData(4)>]
+        [<InlineData(5)>]
+        [<InlineData(6)>]
+        [<InlineData(7)>]
+        [<InlineData(8)>]
+        [<InlineData(9)>]
+        [<InlineData(10)>]
+        let ``Base10PowerFunction is correct`` n =
+            Assert.Equal(pown 10L n, Base10PowerFunction<int64>.Calculate n)
+            //Assert.Equal(10L, Base10PowerFunction<int64>.Calculate 1)
+            //Assert.Equal(100L, Base10PowerFunction<int64>.Calculate 2)
+            //Assert.Equal(1000L, Base10PowerFunction<int64>.Calculate 3)
+            //Assert.Equal(10000L, Base10PowerFunction<int64>.Calculate 4)
+            //Assert.Equal(100000L, Base10PowerFunction<int64>.Calculate 5)
+            //Assert.Equal(1000000L, Base10PowerFunction<int64>.Calculate 6)
+            //Assert.Equal(10000000L, Base10PowerFunction<int64>.Calculate 7)
+            //Assert.Equal(100000000L, Base10PowerFunction<int64>.Calculate 8)
+            //Assert.Equal(1000000000L, Base10PowerFunction<int64>.Calculate 9)
+            //Assert.Equal(10000000000L, Base10PowerFunction<int64>.Calculate 10)
+            //Assert.Equal(100000000000L, Base10PowerFunction<int64>.Calculate 11)
+            //Assert.Equal(1000000000000L, Base10PowerFunction<int64>.Calculate 12)
 
