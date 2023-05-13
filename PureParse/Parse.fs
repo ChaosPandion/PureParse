@@ -13,8 +13,92 @@ module Parse =
         member _.Bind (p, f) stream = 
             bind p f stream
 
+        member _.Bind2 (p1, p2, f) stream = 
+            match p1 stream with
+            | Failure (_) -> Failure (stream)
+            | Success (stream, v1) ->
+                match p2 stream with
+                | Failure (_) -> Failure (stream)
+                | Success (stream, v2) -> f (v1, v2) stream
+
+        member _.Bind3 (p1, p2, p3, f) stream = 
+            match p1 stream with
+            | Failure (_) -> Failure (stream)
+            | Success (stream, v1) ->
+                match p2 stream with
+                | Failure (_) -> Failure (stream)
+                | Success (stream, v2) ->
+                    match p3 stream with
+                    | Failure (_) -> Failure (stream)
+                    | Success (stream, v3) -> f (v1, v2, v3) stream
+
+        member _.Bind4 (p1, p2, p3, p4, f) stream = 
+            match p1 stream with
+            | Failure (_) -> Failure (stream)
+            | Success (stream, v1) ->
+                match p2 stream with
+                | Failure (_) -> Failure (stream)
+                | Success (stream, v2) ->
+                    match p3 stream with
+                    | Failure (_) -> Failure (stream)
+                    | Success (stream, v3) ->
+                        match p4 stream with
+                        | Failure (_) -> Failure (stream)
+                        | Success (stream, v4) -> f (v1, v2, v3, v4) stream            
+
+        member _.BindReturn (p, r) (stream:TextStream<_>) =
+            match p stream with
+            | Success (stream, v) -> result (r v) stream
+            | Failure (_) -> Failure (stream)
+
+        member _.Bind2Return (p1, p2, r) (stream:TextStream<_>) =
+            match p1 stream with
+            | Failure (_) -> Failure (stream)
+            | Success (stream, v1) ->
+                match p2 stream with
+                | Failure (_) -> Failure (stream)
+                | Success (stream, v2) -> result (r (v1, v2)) stream
+
+        member _.Bind3Return (p1, p2, p3, r) (stream:TextStream<_>) =
+            match p1 stream with
+            | Failure (_) -> Failure (stream)
+            | Success (stream, v1) ->
+                match p2 stream with
+                | Failure (_) -> Failure (stream)
+                | Success (stream, v2) ->
+                    match p3 stream with
+                    | Failure (_) -> Failure (stream)
+                    | Success (stream, v3) -> result (r (v1, v2, v3)) stream
+
+        member _.Bind4Return (p1, p2, p3, p4, r) (stream:TextStream<_>) =
+            match p1 stream with
+            | Failure (_) -> Failure (stream)
+            | Success (stream, v1) ->
+                match p2 stream with
+                | Failure (_) -> Failure (stream)
+                | Success (stream, v2) ->
+                    match p3 stream with
+                    | Failure (_) -> Failure (stream)
+                    | Success (stream, v3) ->
+                        match p4 stream with
+                        | Failure (_) -> Failure (stream)
+                        | Success (stream, v4) -> result (r (v1, v2, v3, v4)) stream
+
+        member _.MergeSources (p1, p2) (stream:TextStream<_>) =
+            match p1 stream with
+            | Failure (_) -> Failure (stream)
+            | Success (stream, v1) -> 
+                match p2 stream with
+                | Failure (_) -> Failure (stream)
+                | Success (stream, v2) -> result (v1, v2) stream
+
         member _.Return value stream = 
             result value stream
+        
+        member _.Combine (a:Parser<_, unit>,b:Parser<_, _>) stream = 
+            match a stream with
+            | Success (stream, _) -> b stream
+            | Failure (_) -> Failure (stream)
 
         member _.Zero () stream = 
             result () stream

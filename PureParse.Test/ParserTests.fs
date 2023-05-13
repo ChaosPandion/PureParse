@@ -46,38 +46,6 @@ module ParserTests = begin
                 | Success (_, _) -> failwith "Expecting Failure"
             test bind
             test (>>=)
-    
-        [<Fact>]
-        let ``The try pattern allows you to continue`` () =
-            let mutable m = ""
-            let p:Parser<unit, int> = 
-                parse {
-                    try 
-                        failwith "test"
-                        return 1
-                    with 
-                    | ex -> 
-                        m <- ex.ToString()
-                        return 2
-                }
-            match tryRun p "" () with
-            | RunSuccess (_, 2, _) ->
-                Assert.False(String.IsNullOrEmpty m)
-            | _ -> failwith "Expecting Success"
-
-        [<Fact>]
-        let ``The try finally pattern allows you to continue`` () =
-            let mutable f = false
-            let p:Parser<unit, int> = 
-                parse {
-                    try 
-                        return 1
-                    finally 
-                        f <- true
-                }
-            match tryRun p "" () with
-            | RunSuccess (_, 1, _) when f -> ()
-            | _ -> failwith "Expecting Success"
             
         [<Theory>]
         [<InlineData(1)>]
@@ -192,6 +160,18 @@ module ParserTests = begin
             | _ -> failwith "Expecting Success"
 
         [<Fact>]
+        let ``The surround parser returns the middle parser`` () =
+            let left = parseChar '('
+            let middle = parseChar '%'
+            let right = parseChar ')'
+            let p = surround left middle right
+            let stream = TextStream.Create((), "(%)")
+            let f = p stream
+            match f with
+            | Success (_, '%') -> ()
+            | _ -> failwith "Expecting Success"
+
+        [<Fact>]
         let ``Test the sequence4 parser`` () =
             let p:Parser<unit, char> = 
                 fun stream -> 
@@ -283,6 +263,12 @@ module ParserTests = begin
             | Success (stream, Some (Rune '1')) 
                 when stream.Index = 0 -> ()
             | _ -> failwith "Error"
+            let stream = TextStream.Create((), "A")
+            let result = p stream
+            match result with
+            | Success (stream, None) 
+                when stream.Index = 0 -> ()
+            | _ -> failwith "Error"
 
         [<Fact>]
         let ``skipSequence is a success`` () = 
@@ -303,6 +289,12 @@ module ParserTests = begin
             let p:Parser<unit, Rune> = skipParse a b
 
             let stream = TextStream.Create((), "1A")
+            let result = p stream
+            match result with
+            | Success (_, Rune 'A') -> ()
+            | _ -> failwith "Error"
+
+            let stream = TextStream.Create((), "AA")
             let result = p stream
             match result with
             | Success (_, Rune 'A') -> ()
@@ -460,7 +452,7 @@ module ParserTests = begin
                             do! skip (satisfy Rune.IsLetter)
                             do! skip (satisfy Rune.IsLetter)
                             do! skip (satisfy Rune.IsLetter)
-                            return! parseInt32 ()
+                            return! NumberParsers.parseInteger<unit, int> ()
                         }
                 match mode with
                 | 1 ->
@@ -483,6 +475,9 @@ module ParserTests = begin
             | RunSuccess (_, true, _) -> ()
             | _-> failwith "Error"
             match tryRun p "AAABBB1" () with
+            | RunSuccess (_, _, _) -> failwith "Error"
+            | RunFailure (_, _, _) -> ()
+            match tryRun p "AAABBBX" () with
             | RunSuccess (_, _, _) -> failwith "Error"
             | RunFailure (_, _, _) -> ()
     end

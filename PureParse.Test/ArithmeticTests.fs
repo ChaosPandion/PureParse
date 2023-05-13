@@ -12,6 +12,38 @@ module ArithmeticTests =
     begin
 
         [<Fact>]
+        let ``An exception is thrown when the expression is not valid.`` () =
+            Assert.Throws<PureParseException<unit>>(fun () -> Arithmetic.evalText "120 + a" |> ignore)
+
+        [<Fact>]
+        let ``A value with a unary + is correct.`` () =
+            let expect = +1.0
+            let actual = Arithmetic.evalText "+1"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
+
+        [<Fact>]
+        let ``A value with a unary ++ is correct.`` () =
+            let expect = +1.0
+            let actual = Arithmetic.evalText "++1"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
+
+        [<Fact>]
+        let ``A unary operation works with an infix operator.`` () =
+            let expect = +1.0 - 2.0
+            let actual = Arithmetic.evalText "+1 - 2"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
+
+        [<Fact>]
+        let ``A multiple unary operation works with an infix operator.`` () =
+            let expect = +1.0 - 2.0
+            let actual = Arithmetic.evalText "++1 - --2"
+            let n = Math.Abs(expect - actual)
+            Assert.InRange(n, 0, 0.00001)
+
+        [<Fact>]
         let ``The abs function is correct.`` () =
             let expect = abs -1.0
             let actual = Arithmetic.evalText "abs(-1.0)"

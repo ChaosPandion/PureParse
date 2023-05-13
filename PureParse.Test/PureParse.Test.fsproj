@@ -8,6 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ParseTests.fs" />
+    <Compile Include="RunesTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ParserTests.fs" />
     <Compile Include="NumberParserTests.fs" />

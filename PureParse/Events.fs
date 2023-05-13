@@ -1,5 +1,7 @@
 ﻿namespace PureParse
 
+open System
+open System.IO
 open System.Threading.Channels
 open System.Threading.Tasks
 
@@ -87,7 +89,7 @@ module Events =
                         | None -> failwith "Invalid event sequence"
                         | Some c ->
                             c.failures.Add eventData
-                    | ParseComplete eventData ->
+                    | ParseComplete _ ->
                         if stack.Count <> 0 then
                             failwith "Invalid event sequence"
 
@@ -121,102 +123,6 @@ module Events =
         let getTimeStamp () = System.DateTime.Now.Ticks        
 
         module EventTree = 
-
-            let getDeepestFailure<'TState> (tree:EventTree<'TState>) : EventTree<'TState> option =
-                let rec find (tree:EventTree<'TState>) (height:int) : EventTree<'TState> option * int = 
-                    match tree with
-                    | SucceededProduction _ -> None, height 
-                    | FailedProduction d when d.children.IsEmpty -> Some tree, height
-                    | FailedProduction d ->
-                        d.children 
-                        |> List.map (fun tree -> find tree (height + 1))
-                        |> List.maxBy (fun (_, height) -> height)
-                let result, _ = find tree 0
-                result
-
-            
-            let createHtml<'TState> (eventTree:EventTree<'TState>) : string =
-                let opening = $"""
-                    <html>
-                        <head>
-                            <style type="text/css">
-                                .production {{
-                                    padding: 5px;
-                                    margin: 2px;
-                                    margin-left: 20px;
-                                    /*border:2px dashed black;*/
-                                }}
-                                .production-name {{
-                                    color:black;
-                                    font-weight:bold;
-                                    display:inline;
-                                    margin-left:5px;
-                                    font-size:20px;
-                                }}
-                                .expand {{
-									cursor:pointer;
-                                    font-size:20px;
-                                }}
-                                .success {{
-                                    color:green;
-                                }}
-                                .failure {{
-                                    color:red;
-                                }}
-                                .token {{
-                                    color:black;
-                                    font-size:25px;
-                                    padding-left:10px;
-                                }}
-                                .failures {{
-                                    margin-;
-                                }}
-                            </style>
-							<script type="text/javascript">
-								function expandOrCollapse(id) {{
-									let element = document.getElementById(id);
-									let expanded = element.getAttribute("expanded")
-									let isExpanded = expanded == "true";
-									let display = isExpanded ? "block" : "none"
-									let text = isExpanded ? "&minus;" : "&plus;";
-										
-									element.setAttribute("expanded", isExpanded ? "false" : "true");
-									document.querySelectorAll("#" + id + " > .collapse").forEach(a => a.style.display = display);
-									document.querySelectorAll("#" + id + " > span.expand").forEach(a => a.innerHTML = text);
-								}}
-							</script>
-                        </head>
-                        <body>
-                        
-                """
-                let rec run id (eventTree:EventTree<'TState>) =
-                    let getBeginTag (data:ProductionData<'TState>) success = 
-                        let resultClass = if success then "success" else "failure"
-                        $"""
-                            <div id="{id}" expanded="false" class="collapse {id} production {resultClass}">
-                                <span onclick="expandOrCollapse('{id}')" class="expand {resultClass}">&minus;</span>
-                                <span class="production-name {resultClass}">{data.enterData.parserName}</span>
-                                <span class="">index={data.enterData.index}, column={data.enterData.column}, line={data.enterData.line}</span>
-                                <span class="token">{System.Net.WebUtility.HtmlEncode(if data.token.IsSome && data.token.Value.Length > 0 then data.token.Value else "")}</span>
-                        """
-                    let beginTag, data, success =
-                        match eventTree with
-                        | SucceededProduction data -> getBeginTag data true, data, true
-                        | FailedProduction data -> getBeginTag data false, data, false
-
-                    let failures = 
-                        if data.failures.IsEmpty then "" else
-                            "<ul class=\"collapse failures failure\">" + (data.failures |> List.map(fun f -> "<li>" + f.error.Value.ToString() + "</li>") |> List.reduce (+)) + "</ul>"
-
-                    let children = 
-                        data.children 
-                        |> List.mapi (fun index child -> run (id + "-c" + string index) child)
-                    let body = System.String.Join ("", children)
-                    beginTag + failures + body + "</div>"
-
-                opening + (run "root" eventTree) + "</body></html>"
-
-            open System.IO
 
             let writeHtml<'TState> (eventTree:EventTree<'TState>) (path:string) =
                 let opening = $"""
@@ -275,7 +181,6 @@ module Events =
 
                 use fs = File.Open(path, FileMode.Create)
                 use sw = new StreamWriter(fs)
-
 
                 let rec run id (eventTree:EventTree<'TState>) : unit =
                     let getBeginTag (data:ProductionData<'TState>) success = 

@@ -71,7 +71,7 @@ module Json =
     let private parseIntegerPart:Parser<unit, int32 * float> =
         parse {
             let! sign  = parseOptionalMinus
-            let! digits = parseInt32 ()
+            let! digits = NumberParsers.parseInteger<unit, int> ()
             return digits, sign
         }
 
@@ -81,7 +81,7 @@ module Json =
         parse {
             let! _ = parseAnyOf exponentChar
             let! s = sign
-            let! d = parseInt32 ()
+            let! d = NumberParsers.parseInteger<unit, int> ()
             let signModifier = parseSign s;
             let power = signModifier * (double d)
             let result = 10.0 ** power

@@ -96,7 +96,7 @@ module Arithmetic =
             match body with
             | Number n -> n
             | FunctionCall (name, args) ->
-                let args = args |> List.map eval |> Array.ofList
+                let args = args |> Seq.map eval |> Array.ofSeq
                 fMap[name] args
             | UnaryPlus e -> +(eval e)
             | UnaryMinus e -> -(eval e)
@@ -105,24 +105,22 @@ module Arithmetic =
             | Multiply (left, right) -> eval left * eval right
             | Divide (left, right) -> eval left / eval right
 
-        let middle (_, y, _) = y
-
         let ws = skipWhiteSpace<unit> ()
 
         let skipOperator c = 
-            sequence3 ws (parseChar c) ws ||> fun _ -> ()
+            surround ws (skipChar c) ws
             
         let parsePlusOperator:Parser<unit, char> = 
-            (sequence3 ws (parseChar '+') ws) ||> middle
+            surround ws (parseChar '+') ws
 
         let parseMinusOperator:Parser<unit, char> = 
-            (sequence3 ws (parseChar '-') ws) ||> middle
+            surround ws (parseChar '-') ws
 
         let parseMultiplyOperator:Parser<unit, char> = 
-            (sequence3 ws (parseChar '*') ws) ||> middle
+            surround ws (parseChar '*') ws
 
         let parseDivideOperator:Parser<unit, char> = 
-            (sequence3 ws (parseChar '/') ws) ||> middle
+            surround ws (parseChar '/') ws
 
         let parseDigit: Parser<unit, Rune> = satisfy Rune.IsDigit
 
@@ -142,7 +140,7 @@ module Arithmetic =
                 let! rest = optional parseNameTrail
                 match rest with
                 | Some rest ->
-                    return s.ToString() + String.Join("", rest)
+                    return s::rest |> Seq.map string |> Seq.fold (+) ""
                 | None -> 
                     return s.ToString()
             }
@@ -151,25 +149,16 @@ module Arithmetic =
             parseManySep (parseExpression) (skipOperator ',') false 0
 
         let parseFunctionExpression: Parser<unit, Arithmetic> =
-            parse {
-                let! n = parseName
-                let! _, args, _ =  sequence3 (skipOperator '(') parseArguments (skipOperator ')')
-                return FunctionCall (n, args)
-            }
+            sequence2 parseName (surround (skipOperator '(') parseArguments (skipOperator ')')) ||> FunctionCall 
 
         let parseNumberExpression : Parser<unit, Arithmetic> =
-            parse {
-                let! r = parseReal<unit, double> ()
-                return Number r
-            }
+            parseReal<unit, double> () ||> Number
+
+        let parseParenthesizedExpression : Parser<unit, Arithmetic> = 
+            surround (skipOperator '(') parseExpression (skipOperator ')')
 
         let parseBaseExpression : Parser<unit, Arithmetic> =
-            parseNumberExpression <|>
-            parseFunctionExpression
-                <|> parse {
-                    let! _, r, _ = sequence3 (skipOperator '(') parseExpression (skipOperator ')')
-                    return r
-                }
+            choose3 parseNumberExpression parseFunctionExpression parseParenthesizedExpression 
 
         let rec parseSignExpression (x:voption<Arithmetic>) : Parser<unit, Arithmetic> =
                 parse {
@@ -181,14 +170,21 @@ module Arithmetic =
                     | Some '-', z -> 
                         let! e = parseSignExpression z
                         return UnaryMinus e
-                    | _, ValueSome e ->
-                        return e
+                    //| _, ValueSome e ->
+                    //    return e
                     | _, ValueNone -> 
                         return! parseBaseExpression
+                    | _ -> return! failWithMessage "Special Case"
                 }
 
         let rec parseMultiplicativeExpression (x:voption<Arithmetic>) : Parser<unit, Arithmetic> =
             parse {
+                if x.IsNone then
+                    let! x = parseSignExpression ValueNone
+                    return! parseMultiplicativeExpression (ValueSome x)
+                else
+                    return! failWithMessage "Test"
+            } <|> parse {
                 let! op = optional (parseMultiplyOperator <|> parseDivideOperator) 
                 match op, x with
                 | Some '*', ValueSome x ->
@@ -199,15 +195,22 @@ module Arithmetic =
                     let! y = parseSignExpression ValueNone
                     let z = Divide (x, y)
                     return! parseMultiplicativeExpression (ValueSome z)
-                | _, ValueNone ->
-                    let! x = parseSignExpression ValueNone
-                    return! parseMultiplicativeExpression (ValueSome x)
+                //| _, ValueNone ->
+                //    let! x = parseSignExpression ValueNone
+                //    return! parseMultiplicativeExpression (ValueSome x)
                 | _, ValueSome e ->
                     return e
+                | _ -> return! failWithMessage "Special Case"
             }
 
         let rec parseAdditiveExpression (x:voption<Arithmetic>) : Parser<unit, Arithmetic> =
             parse {
+                if x.IsNone then
+                    let! x = parseMultiplicativeExpression ValueNone
+                    return! parseAdditiveExpression (ValueSome x)
+                else
+                    return! failWithMessage "Test"
+            } <|> parse {
                 let! op = optional (parsePlusOperator <|> parseMinusOperator) 
                 match op, x with
                 | Some '+', ValueSome x ->
@@ -218,14 +221,16 @@ module Arithmetic =
                     let! y = parseMultiplicativeExpression ValueNone
                     let z = Subtract (x, y)
                     return! parseAdditiveExpression (ValueSome z)
-                | _, ValueNone ->
-                    let! x = parseMultiplicativeExpression ValueNone
-                    return! parseAdditiveExpression (ValueSome x)
+                //| _, ValueNone ->
+                //    let! x = parseMultiplicativeExpression ValueNone
+                //    return! parseAdditiveExpression (ValueSome x)
                 | _, ValueSome e ->
                     return e
+                | _ -> return! failWithMessage "Special Case"
             } 
 
-        let parseExpression : Parser<unit, Arithmetic> = (sequence3 ws (parseAdditiveExpression ValueNone) ws) ||> middle
+        let parseExpression : Parser<unit, Arithmetic> = 
+            surround ws (parseAdditiveExpression ValueNone) ws
 
         let parseText text = 
             tryRun parseExpression text ()
@@ -238,4 +243,3 @@ module Arithmetic =
                 raise e
 
     end
-

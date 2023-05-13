@@ -30,9 +30,9 @@ module Runes =
         r >= Rune('1') && r <= Rune('9')
 
     let inline isHexDigit r = 
-        r >= Rune('0') && r <= Rune('9') || 
-        r >= Rune('a') && r <= Rune('f') || 
-        r >= Rune('A') && r <= Rune('F')    
+        (r >= Rune('0') && r <= Rune('9')) || 
+        (r >= Rune('a') && r <= Rune('f')) || 
+        (r >= Rune('A') && r <= Rune('F'))    
 
     /// Map the rune to an char
     let (|RuneChar|) (value:Rune) =
@@ -54,7 +54,7 @@ module Runes =
     
     /// Match the input Rune against the expectation
     [<return: Struct>]
-    let inline (|Runes|_|) (expect:obj) (value:ReadOnlyMemory<Rune>) =
+    let (|Runes|_|) (expect:obj) (value:ReadOnlyMemory<Rune>) =
         match expect with
         | :? String as s ->
             if s = null then

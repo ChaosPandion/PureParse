@@ -167,6 +167,7 @@ module ListParserTests =
 
     [<Theory>]
     [<InlineData("", false)>]
+    [<InlineData(";", true)>]
     [<InlineData("X;", true)>]
     [<InlineData("XX;", true)>]
     [<InlineData("XXX;", true)>]
@@ -190,6 +191,14 @@ module ListParserTests =
         | RunFailure (_, _, _) when not succeed -> ()
         | RunSuccess (_, _, _) when succeed -> ()
         | _ -> failwith "Failed to parse list."
+
+    [<Fact>]
+    let ``parseList - Until fails to find enough elements.`` () =  
+        let p = parseString "X"
+        let ending = parseChar ';' >>= fun _ -> result ()
+        match tryRun (parseList p (Until(ending, 10))) "XXXXX;" () with
+        | RunFailure (_, _, _) -> ()
+        | _ -> failwith "The result should have been a failure."
 
     [<Theory>]
     [<InlineData("1,1,1,1", 4, true, 0, false)>]

@@ -236,7 +236,7 @@ module PLisp =
         parse {
             let! _ = parseAnyOf exponentChar
             let! s = sign
-            let! d = parseInt32  ()
+            let! d = NumberParsers.parseInteger<'TState, int>  ()
             let signModifier = parseSign s;
             let power = signModifier * (double d)
             let result = 10.0 ** power
@@ -256,7 +256,7 @@ module PLisp =
     let private parseIntegerPart<'TState> : Parser<'TState, int * double> =
             parse {
                 let! sign = optional (parseChar '-' <|> parseChar '+')
-                let! digits = parseInt32 ()
+                and! digits = NumberParsers.parseInteger<'TState, int> ()
                 let signModifier = parseSign sign
                 return digits, signModifier
             }
@@ -264,7 +264,7 @@ module PLisp =
     let private parseInteger<'TState> : Parser<'TState, int64> =        
         parse {
             let! sign = optional (parseChar '-' <|> parseChar '+')
-            let! integer = parseDecimalInteger
+            and! integer = parseDecimalInteger
             match sign with
             | Some '-' -> 
                 return -1L * integer
@@ -275,8 +275,8 @@ module PLisp =
     let private parseFloat<'TState> : Parser<'TState, double> =        
         parse {
             let! ip, sign = parseIntegerPart  
-            let! fp = parseFractionalPart <|> result 0.0
-            let! ep = parseExponentPart <|> result 1.0
+            and! fp = parseFractionalPart <|> result 0.0
+            and! ep = parseExponentPart <|> result 1.0
             let x = double ip + fp
             let signed = sign * x
             let n = signed * ep
@@ -357,9 +357,9 @@ module PLisp =
         
     let private pList:Parser<unit,PValue> = 
         parse {
-            do! pOpenList
-            let! values = parseList pValue (Sep (pSkipAtLeastOneWhiteSpace, true, 0)) 
-            do! pCloseList
+            let! _ = pOpenList
+            and! values = parseList pValue (Sep (pSkipAtLeastOneWhiteSpace, true, 0)) 
+            and! _ = pCloseList
             return PList values
         }
 

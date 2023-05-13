@@ -134,6 +134,22 @@ module Parsers =
                 | Failure (_) -> Failure (stream)
             | Failure (_) -> Failure (stream)
 
+    /// Evaluate the three provided parsers and return the middle result.
+    let surround<'TState, 'TLeft, 'TResult, 'TRight> 
+        (left:Parser<'TState, 'TLeft>) 
+        (middle:Parser<'TState, 'TResult>) 
+        (right:Parser<'TState, 'TRight>) : Parser<'TState, 'TResult> =
+        fun stream ->
+            match left stream with
+            | Failure (_) -> Failure (stream)
+            | Success (stream2, _) ->
+                match middle stream2 with
+                | Failure (_) -> Failure (stream)
+                | Success (stream3, result) ->
+                    match right stream3 with
+                    | Failure (_) -> Failure (stream)
+                    | Success (stream4, _) -> Success(stream4, result)
+
     /// Given a list of parsers evaluate each in order and return the first success.
     let choose<'TState, 'TResult> (parsers:Parser<'TState, 'TResult> list) : Parser<'TState, 'TResult> =
         fun (stream:TextStream<'TState>) ->
