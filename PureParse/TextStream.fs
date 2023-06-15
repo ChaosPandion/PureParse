@@ -17,6 +17,28 @@ open Events
 module TextStream = 
     begin
 
+        type Utf8TextStream(data:string, index:int) =
+            class
+
+                member this.Next(count:int): ValueTuple<ReadOnlyMemory<Rune>, Utf8TextStream> =
+                    let r = Array.zeroCreate<Rune> count
+                    let mutable i = 0
+                    let mutable n = 0
+                    while i < count do
+                        let c = data[index]
+                        if Char.IsHighSurrogate c then
+                            let c2 = data[index + 1]
+                            r[i] <- Rune(c, c2)
+                            n <- n + 2
+                        else
+                            r[i] <- Rune(c)
+                            n <- n + 1
+                    struct(ReadOnlyMemory(r), Utf8TextStream(data, index + n))
+
+            end
+
+
+
         let inline convertToMemory (text:string) =
             if text = null then nullArg (nameof(text))
             text.ReplaceLineEndings("\n").EnumerateRunes() |> Seq.toArray |> ReadOnlyMemory

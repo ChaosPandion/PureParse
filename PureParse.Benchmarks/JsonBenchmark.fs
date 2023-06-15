@@ -190,3 +190,42 @@ type JsonBenchmark () =
         match result with
         | Json.JsonArray items -> ()
         | _ -> failwith "Unexpected type"
+
+    [<Benchmark>]
+    [<BenchmarkCategory("Complex", "Array and Object")>]
+    member this.ParseRecursiveObjectArrayWithNewLines () =
+        let text = """
+            [ 
+                123, 
+                { 
+                    "aaa": 123, 
+                    "bbb": true, 
+                    "ccc": null   
+                }, 
+                [ 
+                    123, 
+                    { 
+                        "aaa": 123, 
+                        "bbb": true, 
+                        "ccc": null   
+                    }, 
+                    [ 
+                        123, 
+                        true, 
+                        [ 
+                            123, 
+                            { 
+                                "aaa": 123, 
+                                "bbb": true, 
+                                "ccc": null   
+                            }, 
+                            "aaa" 
+                        ] 
+                    ] 
+                ]             
+            ]            
+            """
+        let result = Json.parseText text
+        match result with
+        | Json.JsonArray items -> ()
+        | _ -> failwith "Unexpected type"
